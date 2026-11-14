@@ -13,12 +13,13 @@ var switchable := false
 var sprite: Sprite2D
 var tex_off: Texture2D
 var tex_on: Texture2D
+var tex_broken: Texture2D      # optional picture used while broken
 var badge: Label
 var name_label: Label
 var top := 0.0
 
 
-func setup(p_kind: String, p_title: String, tex_path: String, p_scale: float, p_radius: float, on_tex_path: String = "", sink: float = 0.42, vis: float = 0.84) -> void:
+func setup(p_kind: String, p_title: String, tex_path: String, p_scale: float, p_radius: float, on_tex_path: String = "", sink: float = 0.5, vis: float = 1.0) -> void:
 	kind = p_kind
 	title = p_title
 	radius = p_radius
@@ -29,12 +30,13 @@ func setup(p_kind: String, p_title: String, tex_path: String, p_scale: float, p_
 
 	sprite = Sprite2D.new()
 	sprite.texture = tex_off
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	sprite.scale = Vector2(p_scale, p_scale)
 	var h := 128.0
 	if tex_off != null:
 		h = float(tex_off.get_height())
-	# Kenney sprites have empty space around them. "sink" moves the picture so
-	# its feet sit on the node position; "vis" is how tall the picture really is.
+	# "sink" moves the picture so its feet sit on the node position (0.5 = the
+	# bottom edge of the image); "vis" is how much of the image height is used.
 	sprite.offset = Vector2(0, -h * sink)
 	add_child(sprite)
 	top = h * vis * p_scale
@@ -84,8 +86,12 @@ func refresh() -> void:
 	if sprite == null:
 		return
 	if broken:
-		sprite.texture = tex_off
-		sprite.modulate = Color(0.5, 0.42, 0.42)
+		if tex_broken != null:
+			sprite.texture = tex_broken
+			sprite.modulate = Color(1, 1, 1)
+		else:
+			sprite.texture = tex_off
+			sprite.modulate = Color(0.5, 0.42, 0.42)
 		_set_badge("BROKEN!", Color(0.8, 0.15, 0.1, 0.95))
 	elif switchable:
 		if is_on:
@@ -97,6 +103,7 @@ func refresh() -> void:
 			sprite.modulate = Color(0.72, 0.72, 0.78)
 			_set_badge("OFF", Color(0.3, 0.3, 0.3, 0.95))
 	else:
+		sprite.texture = tex_off
 		sprite.modulate = Color(1, 1, 1)
 		badge.visible = false
 

@@ -18,7 +18,7 @@ func setup(character: String) -> void:
 	sprite = Sprite2D.new()
 	sprite.texture = tex["down"]
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale = Vector2(1.4, 1.4)
+	sprite.scale = Vector2(1.5, 1.5)
 	sprite.offset = Vector2(0, -35)
 	add_child(sprite)
 

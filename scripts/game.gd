@@ -48,5 +48,5 @@ func credits_text() -> String:
 	else:
 		lines.append("Mars temperatures: sample values in the range NASA's Curiosity rover measures.")
 	lines.append("Oxygen machine: based on NASA's MOXIE experiment on the Perseverance rover.")
-	lines.append("World art: Kenney (kenney.nl). Characters: our team.")
+	lines.append("Art: our team, made with AI tools.")
 	return "\n".join(lines)

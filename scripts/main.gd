@@ -29,14 +29,7 @@ const STORM_SECONDS := 35.0
 const SCRAP_HIT := 8.0            # health lost when flying scrap hits you
 const WORKSHOP_COST := 25.0       # energy needed to build one spare part
 
-# where each picture's feet are, and how tall it really is (fractions of the image)
-const SPRITE_INFO := {
-	"solar_panel": [0.34, 0.69], "dome": [0.5, 1.0], "workshop": [0.5, 1.0],
-	"shield_off": [0.41, 0.84], "oxygen_machine": [0.34, 0.69], "heater": [0.34, 0.69],
-	"battery": [0.44, 0.88], "command_center": [0.5, 1.0], "antenna": [0.38, 0.75],
-	"lamp": [0.28, 0.56], "npc": [0.19, 0.38], "rock": [0.26, 0.5],
-	"scrap_pile": [0.28, 0.55], "truck": [0.25, 0.5], "rover": [0.28, 0.56],
-}
+const ART_SCALE := 2.0           # every world picture is pixel art shown at 2x
 
 var energy := START_ENERGY
 var oxygen := START_OXYGEN
@@ -117,8 +110,10 @@ func _build_world() -> void:
 	ground.texture = load("res://assets/world/ground.png")
 	ground.centered = false
 	ground.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	ground.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	ground.region_enabled = true
-	ground.region_rect = Rect2(Vector2.ZERO, WORLD_SIZE)
+	ground.region_rect = Rect2(Vector2.ZERO, WORLD_SIZE / ART_SCALE)
+	ground.scale = Vector2(ART_SCALE, ART_SCALE)
 	ground.z_index = -10
 	add_child(ground)
 
@@ -131,29 +126,30 @@ func _build_world() -> void:
 
 	# --- solar field (left side)
 	for p in [Vector2(380, 520), Vector2(560, 520), Vector2(740, 520), Vector2(380, 720), Vector2(560, 720), Vector2(740, 720)]:
-		var panel = _spawn("panel", "Solar panel", "solar_panel", p, 1.2, 44.0)
+		var panel = _spawn("panel", "Solar panel", "solar_panel", p, 40.0)
+		panel.tex_broken = load("res://assets/world/solar_panel_broken.png")
 		panel.name_label.visible = false
 		panels.append(panel)
-	battery = _spawn("battery", "Battery", "battery", Vector2(560, 960), 1.1, 54.0)
+	battery = _spawn("battery", "Battery", "battery", Vector2(560, 960), 56.0)
 
 	# --- centre
-	_spawn("decor", "", "command_center", Vector2(1120, 470), 1.7, 92.0)
-	_spawn("decor", "", "antenna", Vector2(1290, 400), 1.3, 22.0)
-	dome = _spawn("dome", "Habitat dome", "dome", Vector2(1160, 1010), 1.6, 84.0)
-	heater = _spawn("heater", "Heater", "heater", Vector2(900, 1080), 1.6, 44.0)
+	_spawn("decor", "", "command_center", Vector2(1120, 470), 100.0)
+	_spawn("decor", "", "antenna", Vector2(1310, 420), 20.0)
+	dome = _spawn("dome", "Habitat dome", "dome", Vector2(1160, 1010), 90.0)
+	heater = _spawn("heater", "Heater", "heater", Vector2(900, 1080), 42.0, "heater_on")
 	heater.switchable = true
 
 	# --- right side
-	oxy_machine = _spawn("oxygen", "Oxygen machine", "oxygen_machine", Vector2(1580, 560), 1.6, 44.0)
+	oxy_machine = _spawn("oxygen", "Oxygen machine", "oxygen_machine", Vector2(1580, 560), 48.0)
 	oxy_machine.switchable = true
 	oxy_machine.is_on = true
-	shield = _spawn("shield", "Radiation shield", "shield_off", Vector2(1760, 900), 1.7, 42.0, "shield_on")
+	shield = _spawn("shield", "Radiation shield", "shield_off", Vector2(1760, 900), 36.0, "shield_on")
 	shield.switchable = true
-	workshop = _spawn("workshop", "Workshop", "workshop", Vector2(1500, 1220), 1.5, 62.0)
-	_spawn("decor", "", "truck", Vector2(1330, 1290), 1.3, 34.0)
-	_spawn("decor", "", "rover", Vector2(930, 380), 1.3, 36.0)
+	workshop = _spawn("workshop", "Workshop", "workshop", Vector2(1500, 1220), 82.0)
+	_spawn("decor", "", "truck", Vector2(1340, 1300), 40.0)
+	_spawn("decor", "", "rover", Vector2(930, 380), 46.0)
 	for p in [Vector2(960, 620), Vector2(1280, 620), Vector2(700, 900), Vector2(1420, 940)]:
-		_spawn("decor", "", "lamp", p, 1.2, 12.0)
+		_spawn("decor", "", "lamp", p, 10.0)
 
 	for m in [heater, oxy_machine, shield]:
 		m.refresh()
@@ -172,7 +168,7 @@ func _build_world() -> void:
 		var spot := _free_spot(Rect2(80, 150, WORLD_SIZE.x - 160, WORLD_SIZE.y - 220))
 		if spot == Vector2.ZERO:
 			continue
-		_spawn("decor", "", rocks[i % rocks.size()], spot, rng.randf_range(0.8, 1.2), 24.0)
+		_spawn("decor", "", rocks[i % rocks.size()], spot, 22.0)
 
 	# --- the player
 	player = PlayerScript.new()
@@ -197,31 +193,25 @@ func _build_world() -> void:
 	add_child(hud)
 
 
-func _spawn(kind: String, title: String, asset: String, pos: Vector2, size_scale: float, radius: float, on_asset: String = ""):
-	var key := asset
-	if asset.begins_with("npc"):
-		key = "npc"
-	elif asset.begins_with("rock"):
-		key = "rock"
-	var info: Array = SPRITE_INFO.get(key, [0.42, 0.84])
+func _spawn(kind: String, title: String, asset: String, pos: Vector2, radius: float, on_asset: String = ""):
 	var on_path := ""
 	if on_asset != "":
 		on_path = "res://assets/world/%s.png" % on_asset
 	var m = MachineScript.new()
 	m.position = pos
 	world.add_child(m)
-	m.setup(kind, title, "res://assets/world/%s.png" % asset, size_scale, radius, on_path, float(info[0]), float(info[1]))
+	m.setup(kind, title, "res://assets/world/%s.png" % asset, ART_SCALE, radius, on_path)
 	machines.append(m)
 	return m
 
 
 func _spawn_npc(title: String, role: String, asset: String, pos: Vector2) -> void:
-	var m = _spawn("npc", title, asset, pos, 1.7, 16.0)
+	var m = _spawn("npc", title, asset, pos, 16.0)
 	m.role = role
 
 
 func _spawn_scrap(pos: Vector2) -> void:
-	_spawn("scrap", "Scrap pile", "scrap_pile", pos, 0.9, 26.0)
+	_spawn("scrap", "Scrap pile", "scrap_pile", pos, 32.0)
 
 
 func _free_spot(area: Rect2) -> Vector2:
