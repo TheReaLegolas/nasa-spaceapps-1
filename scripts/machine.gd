@@ -1,65 +1,72 @@
 extends Node2D
-# One thing in the world: a building, a colonist, a rock or a scrap pile.
-# The node's position is where the thing touches the ground.
+# One thing standing in the world: a building, a machine, a solar panel,
+# an empty building plot, a rock, a lamp...
+# The node's position is where the thing touches the ground (bottom-centre of the picture).
 
-var kind := ""          # "panel", "oxygen", "heater", "shield", "battery", "dome", "workshop", "scrap", "npc", "decor"
+var what := "thing"
+var tid := ""                  # its name in world_data.gd, for example "oxygen"
+# kind is one of: "panel", "turbine", "plot_solar", "plot_wind", "battery", "relay", "oxygen",
+# "heater", "shield", "antenna", "drill", "farm", "workshop", "home", "decor"
+var kind := ""
 var title := ""
-var role := ""          # for colonists: "engineer", "doctor", "scientist", "journalist"
-var radius := 50.0      # how much space it blocks
+var col := Rect2()             # the box that blocks the player (world pixels)
+var solid := true
+var built := true              # false for an empty plot
+
 var broken := false
-var is_on := false
+var leaking := false           # a home with a hole in it
+var dusty := false             # a solar panel covered in dust
 var switchable := false
+var is_on := false
 
 var sprite: Sprite2D
-var tex_off: Texture2D
+var tex_normal: Texture2D
 var tex_on: Texture2D
-var tex_broken: Texture2D      # optional picture used while broken
+var tex_broken: Texture2D
+var tex_dusty: Texture2D
+var frames: Array = []         # animation frames (wind turbine)
+var anim_t := 0.0
+var anim_speed := 6.0
 var badge: Label
 var name_label: Label
-var top := 0.0
+var art_h := 100.0             # height of the picture on screen
 
 
-func setup(p_kind: String, p_title: String, tex_path: String, p_scale: float, p_radius: float, on_tex_path: String = "", sink: float = 0.5, vis: float = 1.0) -> void:
-	kind = p_kind
-	title = p_title
-	radius = p_radius
-	tex_off = load(tex_path)
-	tex_on = tex_off
-	if on_tex_path != "":
-		tex_on = load(on_tex_path)
+func setup(data: Dictionary) -> void:
+	tid = str(data["id"])
+	kind = str(data["kind"])
+	title = str(data["title"])
+	col = data["col"]
+	solid = data["solid"]
+	position = data["pos"]
 
 	sprite = Sprite2D.new()
-	sprite.texture = tex_off
 	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	sprite.scale = Vector2(p_scale, p_scale)
-	var h := 128.0
-	if tex_off != null:
-		h = float(tex_off.get_height())
-	# "sink" moves the picture so its feet sit on the node position (0.5 = the
-	# bottom edge of the image); "vis" is how much of the image height is used.
-	sprite.offset = Vector2(0, -h * sink)
+	sprite.scale = Vector2(2, 2)
 	add_child(sprite)
-	top = h * vis * p_scale
 
-	if p_title != "" and p_kind != "decor":
-		name_label = _make_label(p_title, 14, Color(1, 1, 1), Color(0, 0, 0, 0.45))
-		name_label.position = Vector2(-80, 4)
-		name_label.size = Vector2(160, 20)
-		add_child(name_label)
+	name_label = _make_label(title, Color(1, 1, 1), Color(0, 0, 0, 0.45))
+	name_label.position = Vector2(-90, 4)
+	name_label.size = Vector2(180, 20)
+	add_child(name_label)
 
-	badge = _make_label("", 14, Color(1, 1, 1), Color(0.2, 0.2, 0.2, 0.85))
-	badge.position = Vector2(-45, -top - 22)
-	badge.size = Vector2(90, 20)
+	badge = _make_label("", Color(1, 1, 1), Color(0.2, 0.2, 0.2, 0.9))
+	badge.size = Vector2(96, 20)
 	badge.visible = false
 	add_child(badge)
+
+	if kind == "plot_solar" or kind == "plot_wind":
+		built = false
+		z_index = -1               # flat on the ground: always drawn under characters
+	set_art(str(data["asset"]))
 	refresh()
 
 
-func _make_label(text: String, font_size: int, color: Color, bg: Color) -> Label:
+func _make_label(text: String, color: Color, bg: Color) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_font_size_override("font_size", 14)
 	l.add_theme_color_override("font_color", color)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
@@ -69,13 +76,68 @@ func _make_label(text: String, font_size: int, color: Color, bg: Color) -> Label
 	return l
 
 
-func collider_center() -> Vector2:
-	return position + Vector2(0, -radius * 0.6)
+func _load_if_exists(asset: String) -> Texture2D:
+	var path: String = "res://assets/world/%s.png" % asset
+	var t: Texture2D = null
+	if ResourceLoader.exists(path):
+		t = load(path)
+	return t
+
+
+func set_art(asset: String) -> void:
+	tex_normal = load("res://assets/world/%s.png" % asset)
+	tex_on = null
+	tex_broken = null
+	tex_dusty = null
+	frames = []
+	if kind == "shield":
+		tex_on = _load_if_exists("shield_on")
+	elif kind == "heater":
+		tex_on = _load_if_exists("heater_on")
+	elif kind == "panel":
+		tex_broken = _load_if_exists("solar_panel_broken")
+		tex_dusty = _load_if_exists("solar_panel_dusty")
+	elif kind == "turbine":
+		for i in 4:
+			var t: Texture2D = _load_if_exists("wind_turbine_%d" % i)
+			if t != null:
+				frames.append(t)
+	sprite.texture = tex_normal
+	if tex_normal != null:
+		art_h = float(tex_normal.get_height()) * 2.0
+		sprite.offset = Vector2(0, -float(tex_normal.get_height()) / 2.0)
+	badge.position = Vector2(-48, -minf(art_h + 26.0, 196.0))
+	var named: bool = title != "" and kind != "panel" and kind != "turbine" and kind != "plot_solar" and kind != "plot_wind"
+	name_label.text = title
+	name_label.visible = named
+
+
+func convert_to(new_kind: String, asset: String, new_title: String, new_col: Rect2) -> void:
+	# an empty plot becomes a real machine
+	kind = new_kind
+	title = new_title
+	col = new_col
+	solid = true
+	built = true
+	z_index = 0
+	set_art(asset)
+	refresh()
+
+
+func get_col() -> Rect2:
+	return col
+
+
+func dist_to(p: Vector2) -> float:
+	# distance from a point to this thing's box (0 when inside)
+	var dx: float = maxf(maxf(col.position.x - p.x, p.x - col.end.x), 0.0)
+	var dy: float = maxf(maxf(col.position.y - p.y, p.y - col.end.y), 0.0)
+	return sqrt(dx * dx + dy * dy)
 
 
 func works() -> bool:
-	# true when the machine is actually doing its job
-	if broken:
+	# true when the machine is really doing its job
+	if not built or broken:
 		return false
 	if switchable:
 		return is_on
@@ -85,33 +147,51 @@ func works() -> bool:
 func refresh() -> void:
 	if sprite == null:
 		return
-	if broken:
+	var tex: Texture2D = tex_normal
+	var tint := Color(1, 1, 1)
+	var text := ""
+	var bg := Color(0.2, 0.2, 0.2, 0.9)
+	if not built:
+		text = ""
+	elif broken:
 		if tex_broken != null:
-			sprite.texture = tex_broken
-			sprite.modulate = Color(1, 1, 1)
+			tex = tex_broken
 		else:
-			sprite.texture = tex_off
-			sprite.modulate = Color(0.5, 0.42, 0.42)
-		_set_badge("BROKEN!", Color(0.8, 0.15, 0.1, 0.95))
+			tint = Color(0.5, 0.42, 0.42)
+		text = "BROKEN!"
+		bg = Color(0.8, 0.15, 0.1, 0.95)
+	elif leaking:
+		text = "AIR LEAK!"
+		bg = Color(0.8, 0.15, 0.1, 0.95)
+	elif dusty:
+		if tex_dusty != null:
+			tex = tex_dusty
+		text = "DUSTY"
+		bg = Color(0.72, 0.46, 0.2, 0.95)
 	elif switchable:
 		if is_on:
-			sprite.texture = tex_on
-			sprite.modulate = Color(1, 1, 1)
-			_set_badge("ON", Color(0.1, 0.6, 0.2, 0.95))
+			if tex_on != null:
+				tex = tex_on
+			text = "ON"
+			bg = Color(0.1, 0.6, 0.2, 0.95)
 		else:
-			sprite.texture = tex_off
-			sprite.modulate = Color(0.72, 0.72, 0.78)
-			_set_badge("OFF", Color(0.3, 0.3, 0.3, 0.95))
-	else:
-		sprite.texture = tex_off
-		sprite.modulate = Color(1, 1, 1)
-		badge.visible = false
-
-
-func _set_badge(text: String, bg: Color) -> void:
+			tint = Color(0.8, 0.8, 0.86)
+			text = "OFF"
+			bg = Color(0.3, 0.3, 0.3, 0.95)
+	if frames.is_empty() or broken:
+		sprite.texture = tex
+	sprite.modulate = tint
 	badge.text = text
-	badge.visible = true
+	badge.visible = text != ""
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.set_corner_radius_all(4)
 	badge.add_theme_stylebox_override("normal", sb)
+
+
+func _process(delta: float) -> void:
+	# spin the wind turbine
+	if frames.is_empty() or broken or Game.paused:
+		return
+	anim_t += delta * anim_speed
+	sprite.texture = frames[int(anim_t) % frames.size()]

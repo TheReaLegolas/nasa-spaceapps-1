@@ -10,6 +10,11 @@ const TOTAL_SOLS := 10       # 10 sols x 3 minutes = 30 minutes
 var character := "girl"      # "girl" or "boy"
 var result := {}             # filled in when a game ends, read by the end screen
 
+# These three are updated by main.gd every frame and read by colonists and vehicles.
+var paused := false          # true while a dialog is open: everything in the world waits
+var shelter := false         # true at night and during storms: townspeople go home
+var player_pos := Vector2.ZERO
+
 
 func _ready() -> void:
 	_add_action("move_left", [KEY_A, KEY_LEFT])

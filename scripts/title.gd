@@ -14,39 +14,44 @@ func _ready() -> void:
 	add_child(bg)
 
 	var title := _label("MARS COLONY 3030", 64, Color(1.0, 0.62, 0.35))
-	title.position = Vector2(0, 50)
+	title.position = Vector2(0, 44)
 	title.size = Vector2(1280, 80)
 	add_child(title)
 
 	var sub := _label("Keep the colony alive for 10 Mars days.", 26, Color(1, 1, 1))
-	sub.position = Vector2(0, 135)
+	sub.position = Vector2(0, 128)
 	sub.size = Vector2(1280, 40)
 	add_child(sub)
 
 	var pick := _label("Choose your colonist", 24, Color(1.0, 0.85, 0.5))
-	pick.position = Vector2(0, 200)
+	pick.position = Vector2(0, 190)
 	pick.size = Vector2(1280, 36)
 	add_child(pick)
 
-	_add_card("girl", "Girl", Vector2(420, 250))
-	_add_card("boy", "Boy", Vector2(660, 250))
+	_add_card("girl", "Girl", Vector2(420, 236))
+	_add_card("boy", "Boy", Vector2(660, 236))
 	_select("girl")
 
 	var start := Button.new()
 	start.text = "START"
-	start.position = Vector2(515, 505)
+	start.position = Vector2(515, 500)
 	start.size = Vector2(250, 64)
 	start.add_theme_font_size_override("font_size", 30)
 	start.pressed.connect(_on_start)
 	add_child(start)
 
-	var help := _label("Move: arrow keys or W A S D        Use / talk / repair: E or SPACE", 20, Color(0.85, 0.85, 0.85))
-	help.position = Vector2(0, 590)
+	var help := _label("Move: arrow keys or W A S D        Use / talk / repair / drive: E or SPACE", 20, Color(0.85, 0.85, 0.85))
+	help.position = Vector2(0, 584)
 	help.size = Vector2(1280, 30)
 	add_child(help)
 
+	var help2 := _label("Follow the ! on the minimap. Collect ore from the miners. Drive a rover to get around faster.", 18, Color(0.8, 0.8, 0.8))
+	help2.position = Vector2(0, 618)
+	help2.size = Vector2(1280, 28)
+	add_child(help2)
+
 	var credit := _label("Uses real NASA space weather data. Made for the NASA Space Apps Challenge.", 16, Color(0.7, 0.7, 0.7))
-	credit.position = Vector2(0, 670)
+	credit.position = Vector2(0, 672)
 	credit.size = Vector2(1280, 26)
 	add_child(credit)
 
@@ -63,9 +68,9 @@ func _label(text: String, font_size: int, color: Color) -> Label:
 func _add_card(id: String, text: String, pos: Vector2) -> void:
 	var b := Button.new()
 	b.position = pos
-	b.size = Vector2(200, 230)
+	b.size = Vector2(200, 240)
 	b.text = text
-	b.icon = load("res://assets/player/%s_down.png" % id)
+	b.icon = load("res://assets/chars/portrait_%s.png" % id)
 	b.expand_icon = true
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
