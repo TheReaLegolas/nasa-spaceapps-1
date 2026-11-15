@@ -324,6 +324,8 @@ var prompt_label: Label
 var hold_bar: ProgressBar
 var toast_label: Label
 var toast_left := 0.0
+var toast_age := 0.0
+var toast_queue: Array = []
 
 var banner: Panel
 var banner_title: Label
@@ -580,8 +582,11 @@ func _process(delta: float) -> void:
 			_hide_banner()
 	if toast_left > 0.0:
 		toast_left -= delta
+		toast_age += delta
 		toast_label.modulate.a = clampf(toast_left, 0.0, 1.0)
-		if toast_left <= 0.0:
+		if not toast_queue.is_empty() and toast_age >= 1.2:
+			_show_toast(str(toast_queue.pop_front()))
+		elif toast_left <= 0.0:
 			toast_label.visible = false
 	if hurt_alpha > 0.0:
 		hurt_alpha = maxf(0.0, hurt_alpha - delta * 1.2)
@@ -705,7 +710,23 @@ func set_hold(progress: float) -> void:
 
 func toast(text: String) -> void:
 	# a short message near the bottom that fades away by itself
-	toast_label.text = Game.keys_fill(text)
+	var line: String = Game.keys_fill(text)
+	if toast_left > 0.0 and toast_label.text == line:
+		toast_left = 3.2
+		toast_label.modulate.a = 1.0
+		return
+	if toast_queue.has(line):
+		return
+	if toast_left > 0.0 and toast_age < 1.2:
+		if toast_queue.size() < 4:
+			toast_queue.append(line)
+		return
+	_show_toast(line)
+
+
+func _show_toast(line: String) -> void:
+	toast_label.text = line
+	toast_age = 0.0
 	Sfx.play("toast")
 	toast_label.visible = true
 	toast_label.modulate.a = 1.0
