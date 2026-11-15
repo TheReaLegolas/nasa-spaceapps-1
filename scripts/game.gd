@@ -60,6 +60,10 @@ func _add_action(action: String, keys: Array) -> void:
 			InputMap.action_add_event(action, ev)
 
 
+func dev_keys() -> bool:
+	return DEV_KEYS and OS.is_debug_build()
+
+
 func press_text(what: String) -> String:
 	return "%s: %s" % [KEYS, what]
 

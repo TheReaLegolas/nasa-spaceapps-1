@@ -2224,7 +2224,7 @@ func _drive(delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if game_over:
 		return
-	if Game.DEV_KEYS and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
+	if Game.dev_keys() and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
 		_dev_skip()
 		return
 	if film.active:
