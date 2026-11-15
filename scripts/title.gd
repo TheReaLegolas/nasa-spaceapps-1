@@ -116,4 +116,4 @@ func _on_tour_toggled(on: bool) -> void:
 func _on_start() -> void:
 	Game.character = selected
 	Sfx.play("ui_confirm")
-	get_tree().change_scene_to_file("res://scenes/intro.tscn")
+	Game.change_scene("res://scenes/intro.tscn")

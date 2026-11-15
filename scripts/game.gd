@@ -38,12 +38,24 @@ var player_pos := Vector2.ZERO
 var text_speed := "normal"
 var volume := 1.0
 
+var fade_rect: ColorRect
+var changing := false
+
 # The uneven edge of the map (from world_data.gd). Nobody can walk or drive past it.
 var border := PackedVector2Array()
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_settings()
+	var fade_layer := CanvasLayer.new()
+	fade_layer.layer = 100
+	add_child(fade_layer)
+	fade_rect = ColorRect.new()
+	fade_rect.color = Color(0, 0, 0, 0)
+	fade_rect.size = Vector2(1280, 720)
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_layer.add_child(fade_rect)
 	for p in WorldData.BORDER:
 		border.append(p)
 	_add_action("move_left", [KEY_A, KEY_LEFT])
@@ -65,6 +77,29 @@ func _add_action(action: String, keys: Array) -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = k
 			InputMap.action_add_event(action, ev)
+
+
+func change_scene(path: String) -> void:
+	if changing:
+		return
+	changing = true
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	var tw := create_tween()
+	tw.tween_property(fade_rect, "color:a", 1.0, 0.3)
+	tw.tween_callback(_swap_scene.bind(path))
+
+
+func _swap_scene(path: String) -> void:
+	get_tree().change_scene_to_file(path)
+	var tw := create_tween()
+	tw.tween_interval(0.05)
+	tw.tween_property(fade_rect, "color:a", 0.0, 0.35)
+	tw.tween_callback(_fade_done)
+
+
+func _fade_done() -> void:
+	changing = false
+	fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 
 func _load_settings() -> void:

@@ -2313,7 +2313,7 @@ func _quit_to_title() -> void:
 	game_over = true
 	Game.paused = false
 	Sfx.stop_loops()
-	get_tree().change_scene_to_file("res://scenes/title.tscn")
+	Game.change_scene("res://scenes/title.tscn")
 
 
 func _rect_dist(box: Rect2, p: Vector2) -> float:
@@ -3007,7 +3007,7 @@ func _finish(won: bool, reason: String) -> void:
 		"discoveries_total": learn.items.size(),
 		"stats": stats,
 	}
-	get_tree().change_scene_to_file("res://scenes/end.tscn")
+	Game.change_scene("res://scenes/end.tscn")
 
 
 func _start_collapse(reason: String) -> void:

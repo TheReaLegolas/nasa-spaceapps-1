@@ -462,4 +462,4 @@ func _text(parent: Control, text: String, font: Font, font_size: int, color: Col
 
 
 func _start_game() -> void:
-	get_tree().change_scene_to_file("res://scenes/main.tscn")
+	Game.change_scene("res://scenes/main.tscn")
