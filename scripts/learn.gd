@@ -695,7 +695,7 @@ func _refresh_ui() -> void:
 
 
 func _can_open() -> bool:
-	return not (main.game_over or main.cinematic or main.film.active or main.dialog_open or main.choice_open or main.touring)
+	return not (main.game_over or main.cinematic or main.film.active or main.dialog_open or main.choice_open or main.touring or main.menu_open)
 
 
 func toggle_book() -> void:

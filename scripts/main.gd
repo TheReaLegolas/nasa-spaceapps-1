@@ -523,6 +523,7 @@ var choice_enabled := [true, true]
 var choice_done := Callable()
 var after_dialog: Array = []      # things to do when the last dialog line has been closed
 
+var menu_open := false
 var touring := false              # the machine tour at the start of the game
 var tour_i := 0
 var tour_t := 0.0
@@ -553,6 +554,8 @@ func _ready() -> void:
 	film.setup(self)
 	hud.choice_picked.connect(_on_choice_clicked)
 	hud.choice_hovered.connect(_on_choice_hovered)
+	hud.pause_resume.connect(_close_menu)
+	hud.pause_quit.connect(_quit_to_title)
 	hud.tour_skip.connect(_end_tour)
 	_schedule_events()
 	weather_start = rng.randi() % Game.weather().size()
@@ -934,8 +937,8 @@ func _process(delta: float) -> void:
 		return
 	if choice_open:
 		choice_time += delta
-	Game.paused = dialog_open or choice_open or touring or learn.book_open
-	if learn.book_open:
+	Game.paused = dialog_open or choice_open or touring or learn.book_open or menu_open
+	if learn.book_open or menu_open:
 		hold_target = null
 	if touring:
 		_update_tour(delta)
@@ -2257,6 +2260,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("interact") and choice_time > 0.6:
 			_choose(choice_sel)
 		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if menu_open:
+			_close_menu()
+		elif not (cinematic or dialog_open):
+			_open_menu()
+		return
+	if menu_open:
+		return
 	if not event.is_action_pressed("interact"):
 		return
 	if cinematic:
@@ -2281,6 +2292,28 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif act["mode"] == "hold":
 		hold_target = t
 		hold_time = _saved_hold_time(t, act)
+
+
+func _open_menu() -> void:
+	menu_open = true
+	hold_target = null
+	Game.paused = true
+	hud.show_pause()
+
+
+func _close_menu() -> void:
+	if not menu_open:
+		return
+	menu_open = false
+	hud.hide_pause()
+
+
+func _quit_to_title() -> void:
+	menu_open = false
+	game_over = true
+	Game.paused = false
+	Sfx.stop_loops()
+	get_tree().change_scene_to_file("res://scenes/title.tscn")
 
 
 func _rect_dist(box: Rect2, p: Vector2) -> float:
@@ -2687,7 +2720,7 @@ func _update_hud() -> void:
 			marks.append([v.position, "rover"])
 	hud.set_minimap(player.position, marks, antenna.broken)
 
-	if dialog_open or choice_open or touring or film.active:
+	if dialog_open or choice_open or touring or film.active or menu_open:
 		hud.set_prompt("")
 		hud.set_hold(-1.0)
 		return

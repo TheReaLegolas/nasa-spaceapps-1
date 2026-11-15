@@ -5,6 +5,8 @@ extends CanvasLayer
 signal choice_picked(index: int)
 signal choice_hovered(index: int)
 signal tour_skip
+signal pause_resume
+signal pause_quit
 
 const MinimapScript = preload("res://scripts/minimap.gd")
 const GOLD := Color(1.0, 0.85, 0.5)
@@ -343,6 +345,9 @@ var dialog_tween: Tween
 var tour_typer := Typer.new()
 var choice_card: Panel
 var choice_tween: Tween
+var pause_layer: CanvasLayer
+var speed_buttons := {}
+var volume_slider: HSlider
 
 var choice_root: Control
 var choice_who: Label
@@ -467,6 +472,7 @@ func _ready() -> void:
 
 	_build_tour()
 	_build_choice()
+	_build_pause()
 
 	fade_overlay = _overlay(Color(0.03, 0.02, 0.04, 0.0))
 
@@ -594,6 +600,90 @@ func _process(delta: float) -> void:
 	if fade_alpha > 0.0:
 		fade_alpha = maxf(0.0, fade_alpha - delta * 2.6)
 		fade_overlay.color.a = fade_alpha
+
+
+func _build_pause() -> void:
+	pause_layer = CanvasLayer.new()
+	pause_layer.layer = 12
+	pause_layer.visible = false
+	add_child(pause_layer)
+	var dim := ColorRect.new()
+	dim.color = Color(0.03, 0.03, 0.06, 0.65)
+	dim.size = Vector2(1280, 720)
+	pause_layer.add_child(dim)
+	var box := Panel.new()
+	box.position = Vector2(440, 160)
+	box.size = Vector2(400, 400)
+	box.add_theme_stylebox_override("panel", _style(Color(0.09, 0.1, 0.19, 0.98), GOLD, 3, 16))
+	pause_layer.add_child(box)
+	var title := _text(box, "PAUSED", 30, GOLD, Vector2(0, 16), Vector2(400, 40))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_menu_button(box, "Resume", Vector2(60, 74), Vector2(280, 48), _on_pause_resume)
+	_text(box, "Text speed", 18, Color(1, 1, 1), Vector2(60, 138), Vector2(280, 26))
+	var group := ButtonGroup.new()
+	var speeds := [["slow", "Slow"], ["normal", "Normal"], ["instant", "Instant"]]
+	for i in speeds.size():
+		var id: String = speeds[i][0]
+		var b := _menu_button(box, str(speeds[i][1]), Vector2(60.0 + 96.0 * float(i), 168), Vector2(88, 38), _on_speed_picked.bind(id))
+		b.toggle_mode = true
+		b.button_group = group
+		speed_buttons[id] = b
+	_text(box, "Sound", 18, Color(1, 1, 1), Vector2(60, 222), Vector2(280, 26))
+	volume_slider = HSlider.new()
+	volume_slider.position = Vector2(60, 252)
+	volume_slider.size = Vector2(280, 24)
+	volume_slider.min_value = 0.0
+	volume_slider.max_value = 1.0
+	volume_slider.step = 0.05
+	volume_slider.focus_mode = Control.FOCUS_NONE
+	volume_slider.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	volume_slider.value_changed.connect(_on_volume_changed)
+	box.add_child(volume_slider)
+	_menu_button(box, "Back to title", Vector2(60, 310), Vector2(280, 48), _on_pause_quit)
+
+
+func _menu_button(parent: Control, text: String, pos: Vector2, box: Vector2, action: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.position = pos
+	b.size = box
+	b.add_theme_font_size_override("font_size", 18)
+	b.focus_mode = Control.FOCUS_NONE
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	b.pressed.connect(action)
+	parent.add_child(b)
+	return b
+
+
+func show_pause() -> void:
+	var b: Button = speed_buttons.get(Game.text_speed, speed_buttons["normal"])
+	b.set_pressed_no_signal(true)
+	volume_slider.set_value_no_signal(Game.volume)
+	pause_layer.visible = true
+	Sfx.play("ui_select")
+
+
+func hide_pause() -> void:
+	pause_layer.visible = false
+
+
+func _on_pause_resume() -> void:
+	Sfx.play("ui_click")
+	pause_resume.emit()
+
+
+func _on_pause_quit() -> void:
+	Sfx.play("ui_confirm")
+	pause_quit.emit()
+
+
+func _on_speed_picked(id: String) -> void:
+	Sfx.play("ui_move")
+	Game.set_text_speed(id)
+
+
+func _on_volume_changed(value: float) -> void:
+	Game.set_volume(value)
 
 
 # ------------------------------------------------------------------ building blocks
