@@ -4,6 +4,7 @@ extends Node2D
 const WorldData = preload("res://scripts/world_data.gd")
 const MachineScript = preload("res://scripts/machine.gd")
 const PlayerScript = preload("res://scripts/player.gd")
+const LearnScript = preload("res://scripts/learn.gd")
 const NpcScript = preload("res://scripts/npc.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const HudScript = preload("res://scripts/hud.gd")
@@ -405,6 +406,7 @@ var flare_text := ""
 var hit_cooldown := 0.0
 
 var quests: Array = []            # problems the colony has right now
+var learn                         # the "explore and learn" mode (scripts/learn.gd)
 var learned := {}                 # kinds of problem the player already knows how to fix
 
 var day_types: Array = []         # what kind of day each sol is: "start", "storm", "flare_day", ...
@@ -464,6 +466,9 @@ func _ready() -> void:
 	Game.paused = false
 	Game.shelter = false
 	_build_world()
+	learn = LearnScript.new()
+	add_child(learn)
+	learn.setup(self)
 	hud.choice_picked.connect(_choose)
 	hud.tour_skip.connect(_end_tour)
 	_schedule_events()
@@ -710,6 +715,7 @@ func _start_sol(i: int) -> void:
 	last_phase = "day"
 	storm_fold = false
 	energy_cap = 100.0
+	learn.on_new_sol(i)
 	var kind: String = day_types[i]
 	today_cold = kind == "cold" or kind == "flare_night"
 	var w: Array = Game.weather()
@@ -823,7 +829,7 @@ func _process(delta: float) -> void:
 		return
 	if choice_open:
 		choice_time += delta
-	Game.paused = dialog_open or choice_open or touring
+	Game.paused = dialog_open or choice_open or touring or learn.book_open
 	if touring:
 		_update_tour(delta)
 		Game.player_pos = player.position
@@ -950,6 +956,7 @@ func _simulate(delta: float) -> void:
 
 	_run_events()
 	_phase_news()
+	learn.tick()
 
 	# ---- energy
 	made_bolts = _power_made()
@@ -1171,7 +1178,11 @@ func _run_events() -> void:
 		if ev["sol"] != sol or ev["done"]:
 			continue
 		var at: float = ev["t"]
-		if not ev["warned"] and sol_time >= at - WARN_SECONDS:
+		var early: float = WARN_SECONDS
+		if ev["type"] == "flare" and learn.knows("rad"):
+			# the radiation detector sees a flare coming sooner
+			early += learn.EXTRA_WARNING
+		if not ev["warned"] and sol_time >= at - early:
 			ev["warned"] = true
 			if not antenna.broken:
 				if ev["type"] == "dust":
@@ -1453,6 +1464,7 @@ func _refresh_quests() -> void:
 			npc_by_id[who].set_alert(true)
 	for d in decisions:
 		npc_by_id[DILEMMAS[d["id"]]["npc"]].set_alert(true)
+	learn.mark_alerts()
 
 
 func _npc_has_quest(npc) -> bool:
@@ -1468,7 +1480,7 @@ func _npc_has_quest(npc) -> bool:
 	for d in decisions:
 		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
 			return true
-	return false
+	return learn.wants(npc)
 
 
 func _report_text(q: Dictionary) -> String:
@@ -1507,6 +1519,8 @@ func _talk(npc) -> void:
 			_teach(npc, fault)
 			q["stage"] = 2
 	if _talk_errands(npc):
+		said = true
+	if learn.talk(npc):
 		said = true
 	for d in decisions:
 		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
@@ -1950,6 +1964,8 @@ func _npc_lines(npc) -> Array:
 	elif role == "miner":
 		lines.append("Still digging! Come back in a little while and I will have ore for you.")
 		lines.append("Ore is rock with metal inside. We turn it into spare parts for repairs and for building.")
+	elif role == "explorer":
+		lines = learn.idle_lines()
 	else:
 		lines.append("Hello, Operator!")
 	return lines
@@ -2162,6 +2178,11 @@ func _find_target():
 		if di < best_d:
 			best = it
 			best_d = di
+	if learn.find != null:
+		var dl: float = p.distance_to(learn.find.position) - 20.0
+		if dl < best_d:
+			best = learn.find
+			best_d = dl
 	for v in rovers:
 		if v.mode != "parked":
 			continue
@@ -2191,6 +2212,8 @@ func _action_for(t) -> Dictionary:
 		if t.role == "miner" and t.ore > 0 and not _npc_has_quest(t):
 			return _act("Press E: take %d ore from %s" % [t.ore, t.npc_name], "press", 0.0)
 		return _act("Press E: talk to %s" % t.npc_name, "press", 0.0)
+	if what == "learn":
+		return _act("Press E: see what the ? is", "press", 0.0)
 	if what == "item":
 		return _act("Press E: pick up the %s" % t.title, "press", 0.0)
 	if what == "vehicle":
@@ -2259,6 +2282,8 @@ func _do_press(t) -> void:
 		_talk(t)
 	elif t.what == "item":
 		_pick_up(t)
+	elif t.what == "learn":
+		learn.pick_up()
 	elif t.what == "vehicle":
 		_enter_rover(t)
 	elif t.kind == "workshop":
@@ -2457,6 +2482,7 @@ func _tasks() -> Array:
 			t.append("Favour: " + str(sq["task"]))
 		else:
 			t.append("Favour: " + str(sq["back"]))
+	t.append_array(learn.tasks())
 	if t.is_empty():
 		if _is_night():
 			t.append("All good! Hold on until sunrise.")
@@ -2506,6 +2532,8 @@ func _update_hud() -> void:
 	for it in errand_items:
 		if is_instance_valid(it):
 			marks.append([it.position, "item"])
+	if learn.find != null:
+		marks.append([learn.find.position, "item"])
 	for v in rovers:
 		if v != driving:
 			marks.append([v.position, "rover"])
@@ -2596,6 +2624,7 @@ func _start_arrival() -> void:
 	cine_sky_from = sky.color
 	cam.position_smoothing_enabled = false
 	hud.start_cinematic()
+	learn.hide_ui()
 	hud.set_caption("Sol %d is over. Sunrise... and something is coming down from the sky!" % Game.TOTAL_SOLS)
 	_make_rocket()
 
@@ -2771,6 +2800,8 @@ func _finish(won: bool, reason: String) -> void:
 		"parts": parts,
 		"panels": panels.size(),
 		"turbines": turbines.size(),
+		"discoveries": learn.count(),
+		"discoveries_total": learn.items.size(),
 		"stats": stats,
 	}
 	get_tree().change_scene_to_file("res://scenes/end.tscn")
