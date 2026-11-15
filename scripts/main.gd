@@ -551,7 +551,7 @@ func _ready() -> void:
 	film = FilmScript.new()
 	add_child(film)
 	film.setup(self)
-	hud.choice_picked.connect(_choose)
+	hud.choice_picked.connect(_on_choice_clicked)
 	hud.tour_skip.connect(_end_tour)
 	_schedule_events()
 	weather_start = rng.randi() % Game.weather().size()
@@ -1932,6 +1932,11 @@ func _ask(speaker: String, title: String, text: String, options: Array, done: Ca
 	Game.paused = true
 	hold_target = null
 	hud.show_choice(speaker, title, text, options, choice_sel)
+
+
+func _on_choice_clicked(i: int) -> void:
+	if choice_time > 0.6:
+		_choose(i)
 
 
 func _choose(i: int) -> void:
