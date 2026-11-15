@@ -2889,6 +2889,7 @@ func _make_rocket() -> void:
 	rocket_door.color = Color(0.1, 0.08, 0.1)
 	rocket_door.position = Vector2(-14, -146)
 	rocket_door.size = Vector2(26, 46)
+	rocket_door.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rocket_door.visible = false
 	rocket.add_child(rocket_door)
 
