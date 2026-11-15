@@ -18,6 +18,9 @@ var leaking := false           # a home with a hole in it
 var dusty := false             # a solar panel covered in dust
 var switchable := false
 var is_on := false
+var patched := false           # fixed with a quick patch: it falls off the next morning
+var patch_fault := ""          # the kind of problem that comes back when the patch falls off
+var folded := false            # a solar panel folded away to stay safe in a dust storm
 
 var sprite: Sprite2D
 var tex_normal: Texture2D
@@ -163,6 +166,10 @@ func refresh() -> void:
 	elif leaking:
 		text = "AIR LEAK!"
 		bg = Color(0.8, 0.15, 0.1, 0.95)
+	elif folded:
+		tint = Color(0.62, 0.66, 0.78)
+		text = "FOLDED"
+		bg = Color(0.25, 0.35, 0.6, 0.95)
 	elif dusty:
 		if tex_dusty != null:
 			tex = tex_dusty
@@ -178,11 +185,18 @@ func refresh() -> void:
 			tint = Color(0.8, 0.8, 0.86)
 			text = "OFF"
 			bg = Color(0.3, 0.3, 0.3, 0.95)
+		if patched:
+			text += " (patched)"
+	elif patched:
+		text = "PATCHED"
+		bg = Color(0.75, 0.55, 0.1, 0.95)
 	if frames.is_empty() or broken:
 		sprite.texture = tex
 	sprite.modulate = tint
 	badge.text = text
 	badge.visible = text != ""
+	badge.size = Vector2(maxf(96.0, 9.0 * float(text.length()) + 18.0), 20.0)
+	badge.position.x = -badge.size.x / 2.0
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
 	sb.set_corner_radius_all(4)

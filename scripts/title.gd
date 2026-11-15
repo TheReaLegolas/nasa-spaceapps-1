@@ -18,7 +18,7 @@ func _ready() -> void:
 	title.size = Vector2(1280, 80)
 	add_child(title)
 
-	var sub := _label("Keep the colony alive for 10 Mars days.", 26, Color(1, 1, 1))
+	var sub := _label("Run the colony for 7 sols, until the President comes back.", 26, Color(1, 1, 1))
 	sub.position = Vector2(0, 128)
 	sub.size = Vector2(1280, 40)
 	add_child(sub)
@@ -34,19 +34,30 @@ func _ready() -> void:
 
 	var start := Button.new()
 	start.text = "START"
-	start.position = Vector2(515, 500)
-	start.size = Vector2(250, 64)
+	start.position = Vector2(515, 498)
+	start.size = Vector2(250, 54)
 	start.add_theme_font_size_override("font_size", 30)
 	start.pressed.connect(_on_start)
 	add_child(start)
 
+	# the machine tour at the start of the game can be switched off for a second game
+	var tour := CheckBox.new()
+	tour.text = "Start with a tour of the machines"
+	tour.button_pressed = Game.show_tour
+	tour.position = Vector2(488, 558)
+	tour.size = Vector2(304, 30)
+	tour.add_theme_font_size_override("font_size", 17)
+	tour.focus_mode = Control.FOCUS_NONE
+	tour.toggled.connect(_on_tour_toggled)
+	add_child(tour)
+
 	var help := _label("Move: arrow keys or W A S D        Use / talk / repair / drive: E or SPACE", 20, Color(0.85, 0.85, 0.85))
-	help.position = Vector2(0, 584)
+	help.position = Vector2(0, 596)
 	help.size = Vector2(1280, 30)
 	add_child(help)
 
-	var help2 := _label("Follow the ! on the minimap. Collect ore from the miners. Drive a rover to get around faster.", 18, Color(0.8, 0.8, 0.8))
-	help2.position = Vector2(0, 618)
+	var help2 := _label("Watch ENERGY, OXYGEN and FOOD. There is never enough power for everything: every choice has a cost.", 18, Color(0.8, 0.8, 0.8))
+	help2.position = Vector2(0, 628)
 	help2.size = Vector2(1280, 28)
 	add_child(help2)
 
@@ -92,6 +103,10 @@ func _select(id: String) -> void:
 		else:
 			b.modulate = Color(0.55, 0.55, 0.55)
 			b.scale = Vector2(1, 1)
+
+
+func _on_tour_toggled(on: bool) -> void:
+	Game.show_tour = on
 
 
 func _on_start() -> void:

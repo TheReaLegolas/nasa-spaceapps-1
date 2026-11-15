@@ -24,25 +24,37 @@ const FLARES := [
 ]
 
 # ---------------------------------------------------------------------------
-# MARS WEATHER - NOT YET REAL RECORDS.
-# These are sample values inside the range the Curiosity rover measures in
-# Gale Crater. Replace them with real rows from the Curiosity REMS feed
+# MARS WEATHER - REAL measurements from NASA's Curiosity rover in Gale Crater
+# (REMS weather station), taken from the public feed
 #   https://mars.nasa.gov/rss/api/?feed=weather&category=msl&feedtype=json
-# (fields: sol, terrestrial_date, min_temp, max_temp) and then set
-# WEATHER_VERIFIED to true. The end screen credit changes automatically.
+# "sol" is the rover's own day count, "date" the day on Earth,
+# "min" and "max" the lowest and highest air temperature of that sol in Celsius.
 # ---------------------------------------------------------------------------
-const WEATHER_VERIFIED := false
+const WEATHER_VERIFIED := true
 const WEATHER := [
-	{"sol": 0, "date": "", "min": -71, "max": -5},
-	{"sol": 0, "date": "", "min": -73, "max": -8},
-	{"sol": 0, "date": "", "min": -75, "max": -4},
-	{"sol": 0, "date": "", "min": -70, "max": -10},
-	{"sol": 0, "date": "", "min": -78, "max": -7},
-	{"sol": 0, "date": "", "min": -72, "max": -3},
-	{"sol": 0, "date": "", "min": -76, "max": -11},
-	{"sol": 0, "date": "", "min": -74, "max": -6},
-	{"sol": 0, "date": "", "min": -79, "max": -9},
-	{"sol": 0, "date": "", "min": -69, "max": -2},
-	{"sol": 0, "date": "", "min": -77, "max": -12},
-	{"sol": 0, "date": "", "min": -72, "max": -6},
+	{"sol": 4995, "date": "2026-08-25", "min": -71, "max": -5},
+	{"sol": 4994, "date": "2026-08-24", "min": -70, "max": -7},
+	{"sol": 4993, "date": "2026-08-23", "min": -70, "max": -6},
+	{"sol": 4992, "date": "2026-08-22", "min": -69, "max": -6},
+	{"sol": 4991, "date": "2026-08-21", "min": -69, "max": -11},
+	{"sol": 4990, "date": "2026-08-20", "min": -72, "max": -8},
+	{"sol": 4989, "date": "2026-08-19", "min": -72, "max": -6},
+	{"sol": 4988, "date": "2026-08-18", "min": -70, "max": -10},
+	{"sol": 4987, "date": "2026-08-17", "min": -70, "max": -9},
+	{"sol": 4986, "date": "2026-08-16", "min": -71, "max": -9},
+	{"sol": 4985, "date": "2026-08-15", "min": -70, "max": -6},
+	{"sol": 4984, "date": "2026-08-14", "min": -71, "max": -6},
+	{"sol": 4983, "date": "2026-08-13", "min": -70, "max": -4},
+	{"sol": 4982, "date": "2026-08-12", "min": -69, "max": -6},
+	{"sol": 4981, "date": "2026-08-11", "min": -69, "max": -8},
+	{"sol": 4980, "date": "2026-08-09", "min": -78, "max": -7},
+]
+
+# The coldest nights Curiosity measured in the same Mars year (winter in Gale Crater).
+# The game uses them for its "freezing nights", when the colony needs the heater.
+const COLD_NIGHTS := [
+	{"sol": 4852, "date": "2026-03-31", "min": -100, "max": 0},
+	{"sol": 4844, "date": "2026-03-23", "min": -100, "max": -1},
+	{"sol": 4792, "date": "2026-01-28", "min": -100, "max": 4},
+	{"sol": 4781, "date": "2026-01-17", "min": -100, "max": 6},
 ]

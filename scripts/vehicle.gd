@@ -16,6 +16,7 @@ var tex_down: Texture2D
 var tex_up: Texture2D
 var foot := 17.0               # how far below the middle the wheels touch the ground (art pixels)
 var drive_speed := 560.0
+var wrapped := false           # true right after the rover left one end of a road and came back at the other
 
 # self-driving trucks
 var route: Array = []
@@ -88,13 +89,18 @@ func drive(dir: Vector2, delta: float) -> bool:
 	if dir.length() < 0.01:
 		return false
 	var before: Vector2 = position
+	wrapped = false
 	var move: Vector2 = dir.normalized() * drive_speed * delta
 	var try_x: Vector2 = Vector2(position.x + move.x, position.y)
 	if on_road(try_x):
 		position = try_x
+	elif absf(move.x) > 0.0:
+		_wrap(Vector2(move.x, 0.0))
 	var try_y: Vector2 = Vector2(position.x, position.y + move.y)
 	if on_road(try_y):
 		position = try_y
+	elif absf(move.y) > 0.0 and not wrapped:
+		_wrap(Vector2(0.0, move.y))
 	if absf(dir.x) >= absf(dir.y):
 		if dir.x > 0.0:
 			set_facing("right")
@@ -105,6 +111,33 @@ func drive(dir: Vector2, delta: float) -> bool:
 	else:
 		set_facing("up")
 	return position.distance_to(before) > 0.01
+
+
+func _wrap(move: Vector2) -> void:
+	# Like Pac-Man: a rover that drives off the end of a long road at the edge of the map
+	# comes back in at the other end of the same road.
+	for d in WorldData.DRIVE_RECTS:
+		var r: Rect2 = d
+		if not r.has_point(position):
+			continue
+		if absf(move.x) > 0.0 and r.size.x > WorldData.WORLD_SIZE.x * 0.8:
+			if move.x < 0.0 and position.x + move.x < r.position.x:
+				position.x = r.end.x - 3.0
+				wrapped = true
+				return
+			if move.x > 0.0 and position.x + move.x >= r.end.x:
+				position.x = r.position.x + 3.0
+				wrapped = true
+				return
+		if absf(move.y) > 0.0 and r.size.y > WorldData.WORLD_SIZE.y * 0.8:
+			if move.y < 0.0 and position.y + move.y < r.position.y:
+				position.y = r.end.y - 3.0
+				wrapped = true
+				return
+			if move.y > 0.0 and position.y + move.y >= r.end.y:
+				position.y = r.position.y + 3.0
+				wrapped = true
+				return
 
 
 func start_route(p_route: Array) -> void:

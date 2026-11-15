@@ -27,23 +27,29 @@ func _ready() -> void:
 	var summary: String = ""
 	var sol_number: int = int(r.get("sols", 0)) + 1
 	if won:
-		summary = "You kept New Hope alive for all %d sols. Great work, Operator!" % Game.TOTAL_SOLS
+		summary = "The President landed with the new settlers! You kept New Hope running for all %d sols. Great work, Operator!" % Game.TOTAL_SOLS
 	elif reason == "oxygen":
-		summary = "The colony ran out of oxygen on sol %d. Everyone left in the rocket and is safe. You can try again!" % sol_number
+		summary = "The colony ran out of oxygen on sol %d. Everyone moved into the emergency shelter and is safe. You can try again!" % sol_number
+	elif reason == "hunger":
+		summary = "The colony ran out of food on sol %d, and everyone got too weak to work. Help is on the way. You can try again!" % sol_number
+	elif reason == "cold":
+		summary = "The freezing nights wore everyone out on sol %d. The doctor is looking after the colony. You can try again!" % sol_number
+	elif reason == "radiation":
+		summary = "Too much radiation made everyone sick on sol %d. The doctor is looking after the colony. You can try again!" % sol_number
 	else:
-		summary = "You got too hurt to keep working on sol %d. The doctor is looking after you. You can try again!" % sol_number
-	_label(summary, 24, Color(1, 1, 1), Vector2(140, 112), Vector2(1000, 70))
+		summary = "The colony got too hurt to keep working on sol %d. The doctor is looking after everyone. You can try again!" % sol_number
+	_label(summary, 24, Color(1, 1, 1), Vector2(140, 108), Vector2(1000, 70))
 
 	var lines := PackedStringArray()
-	lines.append("Repairs made: %d      Panels wiped clean: %d      Spare parts used: %d" % [int(stats.get("repairs", 0)), int(stats.get("cleaned", 0)), int(stats.get("parts_used", 0))])
-	lines.append("Ore collected from miners: %d      Parts built in the workshop: %d      Things you built: %d" % [int(stats.get("ore", 0)), int(stats.get("parts_built", 0)), int(stats.get("built", 0))])
-	lines.append("The colony ended with %d solar panels and %d wind turbines." % [int(r.get("panels", 0)), int(r.get("turbines", 0))])
-	lines.append("Health lost to cold nights: %d      to radiation: %d      to flying debris: %d" % [int(stats.get("cold", 0.0)), int(stats.get("radiation", 0.0)), int(stats.get("debris", 0.0))])
-	lines.append("Lowest oxygen level: %d%%      Time with no power: %d seconds" % [int(stats.get("lowest_oxygen", 0.0)), int(stats.get("blackout", 0.0))])
-	_label("\n".join(lines), 19, Color(0.9, 0.9, 0.9), Vector2(90, 190), Vector2(1100, 150))
+	lines.append("Full repairs: %d      Quick patches: %d      Panels wiped clean: %d      Spare parts used: %d" % [int(stats.get("repairs", 0)), int(stats.get("patches", 0)), int(stats.get("cleaned", 0)), int(stats.get("parts_used", 0))])
+	lines.append("Ore collected: %d      Parts built in the workshop: %d      Things you built: %d" % [int(stats.get("ore", 0)), int(stats.get("parts_built", 0)), int(stats.get("built", 0))])
+	lines.append("Decisions made: %d      Favours done: %d      The colony ended with %d solar panels and %d wind turbines." % [int(stats.get("decisions", 0)), int(stats.get("side", 0)), int(r.get("panels", 0)), int(r.get("turbines", 0))])
+	lines.append("Health lost to cold nights: %d      radiation: %d      flying debris: %d      hunger: %d" % [int(stats.get("cold", 0.0)), int(stats.get("radiation", 0.0)), int(stats.get("debris", 0.0)), int(stats.get("hunger", 0.0))])
+	lines.append("Lowest oxygen: %d%%      Lowest food: %d%%      Time with no power: %d seconds" % [int(stats.get("lowest_oxygen", 0.0)), int(stats.get("lowest_food", 0.0)), int(stats.get("blackout", 0.0))])
+	_label("\n".join(lines), 18, Color(0.9, 0.9, 0.9), Vector2(60, 184), Vector2(1160, 150))
 
-	_label("WHAT IF...?", 24, Color(1.0, 0.85, 0.5), Vector2(140, 350), Vector2(1000, 34))
-	_label(_what_if(won, reason, stats, r), 22, Color(1, 1, 1), Vector2(140, 384), Vector2(1000, 90))
+	_label("WHAT IF...?", 24, Color(1.0, 0.85, 0.5), Vector2(140, 346), Vector2(1000, 34))
+	_label(_what_if(won, reason, stats, r), 22, Color(1, 1, 1), Vector2(140, 380), Vector2(1000, 96))
 
 	var again := Button.new()
 	again.text = "PLAY AGAIN"
@@ -53,44 +59,53 @@ func _ready() -> void:
 	again.pressed.connect(_on_again)
 	add_child(again)
 
-	_label("Every game has different storms and breakdowns. Try a new plan!", 18, Color(0.8, 0.8, 0.8), Vector2(0, 560), Vector2(1280, 28))
-	_label(Game.credits_text(), 15, Color(0.65, 0.7, 0.75), Vector2(140, 600), Vector2(1000, 100))
+	_label("Every game has different storms, breakdowns and decisions. Try a new plan!", 18, Color(0.8, 0.8, 0.8), Vector2(0, 560), Vector2(1280, 28))
+	_label(Game.credits_text(), 14, Color(0.65, 0.7, 0.75), Vector2(140, 594), Vector2(1000, 116))
 
 
-func _what_if(won: bool, reason: String, stats: Dictionary, r: Dictionary) -> String:
+func _what_if(won: bool, reason: String, stats: Dictionary, _r: Dictionary) -> String:
 	var cold: float = float(stats.get("cold", 0.0))
 	var radiation: float = float(stats.get("radiation", 0.0))
 	var debris: float = float(stats.get("debris", 0.0))
+	var hunger: float = float(stats.get("hunger", 0.0))
 	var blackout: float = float(stats.get("blackout", 0.0))
 	var built: int = int(stats.get("built", 0))
+	var patches: int = int(stats.get("patches", 0))
+	var repairs: int = int(stats.get("repairs", 0))
 
 	if not won and reason == "oxygen":
-		if blackout > 20.0:
-			return "The battery ran empty, so the oxygen machine stopped. What if you had built more solar panels or a wind turbine, or switched the shield or heater off sooner?"
-		return "What if you had kept the oxygen machine running more, and fixed air leaks as soon as someone told you about them?"
+		if blackout > 40.0:
+			return "The battery ran empty, so the oxygen machine stopped. What if you had switched the greenhouse lights off for a while to fill the battery before night?"
+		return "What if you had kept the oxygen machine running more by day, and fixed air leaks as soon as someone told you about them?"
+	if hunger >= cold and hunger >= radiation and hunger >= debris and hunger > 3.0:
+		return "The colony went hungry. What if you had kept the greenhouse lights on longer by day, even if the battery filled more slowly?"
 	if cold >= radiation and cold >= debris and cold > 5.0:
-		return "Cold nights cost you the most health. What if you had built a wind turbine? It makes energy at night, when the heater needs it."
+		return "Cold nights cost the most health. What if you had filled the battery before sunset, or built a wind turbine? It makes power at night, when the heater needs it."
 	if radiation >= cold and radiation >= debris and radiation > 5.0:
-		return "Radiation cost you the most health. What if you had switched the shield on during solar flares, and turned something else off to pay for it?"
+		return "Radiation cost the most health. What if you had switched the shield on during solar flares, and switched something else off to pay for it?"
 	if debris > 5.0:
 		return "Flying debris hit you a lot. What if you had waited inside a rover until the dust storm had passed?"
-	if blackout > 10.0:
-		return "The colony lost power for a while. What if you had repaired and cleaned the solar panels first, or used the workshop less?"
+	if blackout > 60.0:
+		return "The colony lost power for a while. What if you had switched one machine off at sunset, so the battery lasted the whole night?"
+	if patches > repairs + 1:
+		return "You used many quick patches, and they kept falling off. What if you had spent spare parts on full repairs instead?"
 	if built == 0:
 		return "You never built anything new. What if you had spent some spare parts on extra solar panels or a wind turbine?"
-	return "You hardly lost any health! Can you do it again while using fewer spare parts?"
+	return "You hardly lost any health! Can you do it again with fewer spare parts, or without a single quick patch?"
 
 
 func _label(text: String, font_size: int, color: Color, pos: Vector2, box: Vector2) -> void:
 	var l := Label.new()
-	l.text = text
-	l.position = pos
-	l.size = box
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	add_child(l)
+	# the box first and the words after it, so long lines wrap instead of running off the screen
+	l.position = pos
+	l.size = box
+	l.text = text
+	l.size = box
 
 
 func _on_again() -> void:

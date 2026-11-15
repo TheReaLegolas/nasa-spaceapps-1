@@ -3,11 +3,22 @@ extends Node
 
 const NasaData = preload("res://scripts/nasa_data.gd")
 
-# ---- Game length. Change these two numbers to make a shorter demo. ----
-const SOL_SECONDS := 180.0   # one Mars day (a "sol") lasts 3 minutes
-const TOTAL_SOLS := 10       # 10 sols x 3 minutes = 30 minutes
+# ---- Game length. One sol (a day on Mars) = DAY + DUSK + NIGHT + DAWN.
+# Change these numbers to make the game longer or shorter.
+# For a quick demo try 60, 20, 40 and 20: the whole game then takes about 16 minutes.
+const DAY_SECONDS := 240.0    # full daylight: 4 minutes
+const DUSK_SECONDS := 60.0    # sunset: the sky slowly turns dark (1 minute)
+const NIGHT_SECONDS := 120.0  # night: 2 minutes
+const DAWN_SECONDS := 60.0    # sunrise: the sky slowly turns bright again (1 minute)
+const SOL_SECONDS := DAY_SECONDS + DUSK_SECONDS + NIGHT_SECONDS + DAWN_SECONDS
+const TOTAL_SOLS := 7         # the President is away for 7 sols
+
+# F9 jumps to the next part of the day (day, sunset, night, sunrise). Handy for testing
+# and for showing the game quickly. Set this to false to switch the shortcut off.
+const DEV_KEYS := true
 
 var character := "girl"      # "girl" or "boy"
+var show_tour := true        # the machine tour at the start of a game (the title screen can switch it off)
 var result := {}             # filled in when a game ends, read by the end screen
 
 # These three are updated by main.gd every frame and read by colonists and vehicles.
@@ -37,6 +48,10 @@ func weather() -> Array:
 	return NasaData.WEATHER
 
 
+func cold_nights() -> Array:
+	return NasaData.COLD_NIGHTS
+
+
 func flares() -> Array:
 	return NasaData.FLARES
 
@@ -53,5 +68,6 @@ func credits_text() -> String:
 	else:
 		lines.append("Mars temperatures: sample values in the range NASA's Curiosity rover measures.")
 	lines.append("Oxygen machine: based on NASA's MOXIE experiment on the Perseverance rover.")
+	lines.append("Greenhouse: NASA grows lettuce and other plants under LED lights on the International Space Station ('Veggie').")
 	lines.append("Art: our team, made with AI tools.")
 	return "\n".join(lines)

@@ -94,7 +94,6 @@ const THINGS := [
 	{"id": "cart_c", "kind": "decor", "asset": "ore_cart", "pos": Vector2(4320, 960), "col": Rect2(4275, 914, 90, 40), "solid": true, "title": ""},
 	{"id": "rock_m1", "kind": "decor", "asset": "rock_dl", "pos": Vector2(4760, 420), "col": Rect2(4700, 360, 120, 54), "solid": true, "title": ""},
 	{"id": "rock_m2", "kind": "decor", "asset": "rock_dl", "pos": Vector2(5760, 520), "col": Rect2(5700, 460, 120, 54), "solid": true, "title": ""},
-	{"id": "rocket", "kind": "decor", "asset": "rocket", "pos": Vector2(760, 790), "col": Rect2(685, 694, 150, 90), "solid": true, "title": "Rocket"},
 	{"id": "tank_w1", "kind": "decor", "asset": "tank", "pos": Vector2(1380, 620), "col": Rect2(1312, 500, 136, 112), "solid": true, "title": ""},
 	{"id": "tank_w2", "kind": "decor", "asset": "tank", "pos": Vector2(1560, 670), "col": Rect2(1492, 550, 136, 112), "solid": true, "title": ""},
 	{"id": "crates_w1", "kind": "decor", "asset": "crates", "pos": Vector2(1300, 920), "col": Rect2(1252, 854, 96, 60), "solid": true, "title": ""},

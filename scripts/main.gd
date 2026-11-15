@@ -7,42 +7,198 @@ const PlayerScript = preload("res://scripts/player.gd")
 const NpcScript = preload("res://scripts/npc.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const HudScript = preload("res://scripts/hud.gd")
+const ActorScript = preload("res://scripts/actor.gd")
 
-const DAY_END := 110.0            # seconds of daylight in each sol; the rest is night
-
-# ---------------- balance numbers (all "per second"). Change these to tune the game.
+# ---------------- balance numbers. Change these to tune the game.
+# Power is counted in "bolts": a solar panel makes 1 bolt, the oxygen machine uses 2, and
+# so on. One bolt for one second moves the battery by BOLT.
+const BOLT := 0.115
 const START_ENERGY := 70.0
 const START_OXYGEN := 80.0
-const START_PARTS := 3
-const PANEL_POWER := 0.26         # energy one clean, working solar panel makes in full sun
-const TURBINE_POWER := 0.10       # energy one wind turbine makes, day and night
+const START_FOOD := 70.0
+const START_PARTS := 2
+const PANEL_BOLTS := 1.0          # one clean, working solar panel in full sun
+const TURBINE_BOLTS := 1.0        # one wind turbine, day and night
+const BASE_BOLTS := 1.0           # what the town always uses (lights, doors, radios)
+const OXY_BOLTS := 2.0            # the oxygen machine
+const FARM_BOLTS := 2.0           # the greenhouse grow lights
+const HEAT_BOLTS := 2.0           # the heater
+const SHIELD_BOLTS := 3.0         # the radiation shield
+const LEAK_BOLTS := 2.0           # what a broken battery wastes
 const DUSTY_FACTOR := 0.5         # a dusty panel only makes this share of its energy
 const CABLE_FACTOR := 0.5         # share of the energy that arrives while the power line is broken
 const STORM_SUN := 0.3            # how much sunlight gets through a dust storm
 const STORM_WIND := 2.0           # turbines spin faster in a storm
-const BASE_USE := 0.08            # energy the colony always uses
-const OXY_USE := 0.55             # energy used by the oxygen machine
-const OXY_MAKE := 0.50            # oxygen made by the oxygen machine
-const FARM_OXYGEN := 0.06         # oxygen made by the greenhouse plants
-const BREATHING := 0.20           # oxygen the colonists breathe
-const AIR_LEAK := 0.30            # oxygen lost through each hole in a home
-const HEAT_USE := 0.60            # energy used by the heater
-const SHIELD_USE := 0.90          # energy used by the radiation shield
-const ROVER_USE := 0.15           # energy used while driving a rover
-const BATTERY_LEAK := 0.40        # energy lost while the battery is broken
-const COLD_DAMAGE := 0.30         # health lost at night with the heater off
-const RAD_DAMAGE := 1.0           # health lost in a radiation storm with the shield off
-const HEALTH_REGEN := 0.14        # health that comes back when you are safe
-const STORM_SECONDS := 35.0
-const DEBRIS_HIT := 8.0           # health lost when flying debris hits you
+const ROVER_USE := 0.10           # battery energy per second while driving a rover
+const BREATHING := 0.15           # oxygen the colonists breathe every second
+const OXY_MAKE := 0.21            # oxygen the oxygen machine makes every second
+const FARM_OXYGEN := 0.02         # the plants add a little oxygen while the grow lights are on
+const AIR_LEAK := 0.12            # oxygen lost every second through each hole in a home
+const EATING := 0.11              # food the colonists eat every second
+const FOOD_GROW := 0.155          # food the greenhouse grows every second with the lights on
+const HUNGER_DAMAGE := 0.12       # health lost every second while there is no food
+const COLD_DAMAGE := 0.17         # health lost every second on a freezing night with the heater off
+const RAD_DAMAGE := 1.0           # health lost every second in a radiation storm with the shield off
+const HEALTH_REGEN := 0.04        # health that comes back every second when you are safe
+const STORM_SECONDS := 40.0
+const FOLD_EXTRA := 30.0          # folded panels need this long to open again after a storm
+const DEBRIS_HIT := 6.0           # health lost when flying debris hits you
 const WORKSHOP_COST := 25.0       # energy needed to build one spare part in the workshop
-const PANEL_COST := 2             # spare parts to build a solar panel
-const TURBINE_COST := 3           # spare parts to build a wind turbine
-const ORE_SECONDS := 55.0         # how long a miner needs to dig one ore
-const ORE_MAX := 3                # the most ore one miner can hold
-const WARN_SECONDS := 25.0        # how early Mars News warns about storms
-const NIGHT_FLARES := 3           # how many nights get a solar flare
-const NIGHT_FAULTS := 3           # how many other nights get a breakdown
+const PANEL_COST := 3             # spare parts to build a solar panel
+const TURBINE_COST := 4           # spare parts to build a wind turbine
+const ORE_SECONDS := 480.0        # how long a miner needs to dig one ore (one ore per sol)
+const ORE_MAX := 2                # the most ore one miner can hold
+const WARN_SECONDS := 40.0        # how early Mars News warns about storms
+const QUIET_DAYS := 2             # sols with no storm, flare or freezing night (side quests instead)
+const SIDE_QUESTS_PER_QUIET_DAY := 2
+const REPAIR_SECONDS := 2.4       # how long you hold E for a full repair
+const PATCH_SECONDS := 1.6        # how long you hold E for a quick patch
+
+# ---------------- the story: the President is away for Game.TOTAL_SOLS sols
+const PRESIDENT := "President Aria"
+const PAD_POS := Vector2(760, 790)          # where the rocket lands (bottom of the rocket)
+const PAD_VIEW := Vector2(760, 760)         # where the camera looks during the landing
+
+# Side quests for the quiet sols: small, funny jobs that give a little reward.
+# "find": talk to the giver, pick up the item somewhere on the map, bring it back.
+# "deliver": talk to the giver, then talk to the other colonist ("to").
+const SIDE_QUESTS := {
+	"potato": {
+		"giver": "tom", "type": "find", "item": "potato", "item_name": "giant potato",
+		"spots": [Vector2(700, 2700), Vector2(1500, 2700), Vector2(2100, 3400)],
+		"ask": "My Mars potato grew SO big that it rolled out of the greenhouse! Can you find it? It rolled towards the road. I marked it on your map.",
+		"got": "You picked up the giant potato. It is heavier than a cat!",
+		"thanks": "My potato! Tonight there is potato soup for the whole colony. Here, take this spare part I dug up next to it.",
+		"task": "Find Tom's giant potato", "back": "Bring the potato back to Farmer Tom",
+		"parts": 1, "energy": 0,
+	},
+	"robot": {
+		"giver": "nova", "type": "find", "item": "robot", "item_name": "cleaning robot",
+		"spots": [Vector2(2100, 800), Vector2(3900, 3000), Vector2(5000, 2700), Vector2(1200, 1300)],
+		"ask": "My little cleaning robot ran away again! It thinks the whole planet is a dirty floor. Please catch it. I marked it on your map.",
+		"got": "You caught the cleaning robot. It is still trying to clean your boots!",
+		"thanks": "Thank you! Now it can clean the dust off the solar panels instead. Here, take this spare part.",
+		"task": "Catch Nova's runaway robot", "back": "Bring the robot back to Technician Nova",
+		"parts": 1, "energy": 0,
+	},
+	"rock": {
+		"giver": "bo", "type": "find", "item": "rock", "item_name": "lucky rock",
+		"spots": [Vector2(3900, 700), Vector2(4600, 1300), Vector2(5400, 1300)],
+		"ask": "I lost my lucky rock! It fell off the ore truck somewhere on the road near the mine. It is the shiny purple one. I marked it on your map.",
+		"got": "You found the lucky rock. It sparkles a little. Maybe it really is lucky!",
+		"thanks": "My lucky rock! Now I will dig twice as fast. Here, take an ore. It makes a spare part.",
+		"task": "Find Miner Bo's lucky rock", "back": "Bring the lucky rock back to Miner Bo",
+		"parts": 1, "energy": 0,
+	},
+	"lunch": {
+		"giver": "sam", "type": "deliver", "to": "leo",
+		"ask": "Scientist Leo forgot his lunch AGAIN. It is mashed space potatoes, his favourite. Can you bring it to him at the oxygen machine?",
+		"thanks": "My lunch! I was so busy watching the oxygen machine that I forgot to eat. Take this spare part, I do not need it.",
+		"task": "Bring Dr. Sam's lunch box to Scientist Leo",
+		"parts": 1, "energy": 0,
+	},
+	"song": {
+		"giver": "ada", "type": "deliver", "to": "mira",
+		"ask": "It is Engineer Mira's birthday! Please ask her which song I should play on Mars Radio. She is at the workshop.",
+		"thanks": "A birthday song? 'Happy Birthday', of course, but sung by the whole colony! Thank you. Take this charged battery pack: it gives you some energy.",
+		"task": "Ask Engineer Mira for her birthday song",
+		"parts": 0, "energy": 15,
+	},
+}
+
+# The four machines you can switch on and off. Every one of them uses power.
+const SWITCHES := {
+	"oxygen": {"bolts": 2, "name": "oxygen machine", "on": "it makes oxygen", "off": "oxygen will go down"},
+	"farm": {"bolts": 2, "name": "greenhouse lights", "on": "they grow food", "off": "food will go down"},
+	"heater": {"bolts": 2, "name": "heater", "on": "it keeps everyone warm on freezing nights", "off": "it gets cold on freezing nights"},
+	"shield": {"bolts": 3, "name": "radiation shield", "on": "it blocks the radiation of a solar flare", "off": "there is no protection from solar flares"},
+}
+
+# Decisions. A colonist asks, and BOTH answers cost something.
+# "now" changes the colony straight away. "later" arrives the next morning.
+# energy / oxygen / food / health are points on the bars (20 health = 1 heart),
+# parts are spare parts, cap is how full the battery can get.
+const DILEMMAS := {
+	"potatoes": {
+		"npc": "tom", "title": "SEEDS OR SUPPER?",
+		"text": "I dug up a big basket of Mars potatoes! We can eat them today. Or we can plant them: nothing to eat now, but many more potatoes tomorrow.",
+		"a": {"label": "EAT THEM TODAY", "now": {"food": 18}, "lines": ["- No big harvest tomorrow"], "say": "Yum! Potato soup for the whole colony tonight."},
+		"b": {"label": "PLANT THEM", "later": {"food": 40}, "lines": ["- Nothing extra to eat today"], "later_text": "The potatoes you planted yesterday have grown", "say": "A patient choice! Nothing today, but wait until tomorrow morning."},
+	},
+	"drill": {
+		"npc": "bo", "title": "THE BIG DRILL",
+		"text": "We found a thick layer of ore! The big drill can dig it out fast, but it eats a lot of power.",
+		"a": {"label": "RUN THE BIG DRILL", "now": {"energy": -20, "parts": 2}, "say": "BRRRRR! Here you go: two shiny spare parts."},
+		"b": {"label": "SAVE THE ENERGY", "lines": ["+ The battery keeps its energy", "- No extra spare parts"], "say": "All right. The ore will not run away."},
+	},
+	"movie": {
+		"npc": "ada", "title": "MOVIE NIGHT?",
+		"text": "Everyone has worked so hard! The colonists want a movie night on the big screen in the town square. The screen needs power, but a happy colony is a healthy colony.",
+		"a": {"label": "MOVIE NIGHT!", "now": {"energy": -15, "health": 20}, "say": "Popcorn for everyone! Well, popped Mars potatoes."},
+		"b": {"label": "NOT TODAY", "lines": ["+ The battery keeps its energy", "- No extra heart"], "say": "Maybe another day. I will tell them."},
+	},
+	"feast": {
+		"npc": "sam", "title": "A BIG DINNER?",
+		"text": "People are tired and a little sick. A big healthy dinner would make everyone strong again, but it uses a lot of our food.",
+		"a": {"label": "COOK A BIG DINNER", "now": {"food": -20, "health": 40}, "say": "Doctor's orders: second helpings for everyone!"},
+		"b": {"label": "A NORMAL DINNER", "lines": ["+ The food stays in the store", "- No extra hearts"], "say": "Then everyone gets a normal plate. We will manage."},
+	},
+	"trade": {
+		"npc": "nova", "title": "A TRADE BY RADIO",
+		"text": "Olympus Base, the next town, is on the radio. They are short of food and offer spare parts for it. A cargo drone will carry everything.",
+		"a": {"label": "TRADE FOOD FOR PARTS", "now": {"food": -20, "parts": 2}, "say": "Deal! The drone is already on its way."},
+		"b": {"label": "KEEP OUR FOOD", "lines": ["+ The food stays in the store", "- No extra spare parts"], "say": "I will tell them we need it ourselves."},
+	},
+	"boost": {
+		"npc": "mira", "title": "BATTERY BOOST",
+		"text": "I can squeeze extra charge into the battery right now. But a pushed battery gets tired: tomorrow it will only fill up to 75.",
+		"a": {"label": "BOOST THE BATTERY", "now": {"energy": 30}, "later": {"cap": 75}, "later_text": "The battery is tired after yesterday's boost. Today it only fills up to 75", "say": "Zap! Full of energy. Use it well."},
+		"b": {"label": "LEAVE IT ALONE", "lines": ["+ The battery stays healthy", "- No extra energy now"], "say": "A rested battery is a happy battery."},
+	},
+	"tanks": {
+		"npc": "leo", "title": "SPARE AIR TANKS",
+		"text": "I can fill our spare air tanks, just in case. The pump needs a lot of power.",
+		"a": {"label": "FILL THE TANKS", "now": {"energy": -18, "oxygen": 25}, "say": "Pssssht! The tanks are full of fresh air."},
+		"b": {"label": "SAVE THE ENERGY", "lines": ["+ The battery keeps its energy", "- No extra oxygen"], "say": "Fine. Let us hope we do not need them."},
+	},
+	"fold": {
+		"npc": "nova", "title": "A DUST STORM IS COMING",
+		"text": "A dust storm will hit the solar field today. We can FOLD the panels to keep them safe, or keep them OPEN to catch the little sunlight that gets through.",
+		"a": {"label": "FOLD THE PANELS", "flag": "fold", "lines": ["+ No panel can break", "+ No dust to wipe off", "- No solar energy in the storm and for a while after it"], "say": "I will fold them the moment the storm arrives."},
+		"b": {"label": "KEEP THEM OPEN", "lines": ["+ A little solar energy during the storm", "- The wind may break 2 or 3 panels", "- Dust will cover the rest"], "say": "Fingers crossed. I will get my tools ready."},
+	},
+}
+
+# The machine tour at the start of the game: the camera visits every stop.
+# "pos" is a place in the world, "screen" is a spot on the screen (for the bars).
+const TOUR := [
+	{"screen": Vector2(130, 62), "title": "YOUR THREE BARS",
+		"text": "ENERGY is the battery. OXYGEN is the air everyone breathes. FOOD is what everyone eats. The hearts show the colony's health. Do not let them run out!"},
+	{"pos": Vector2(680, 1900), "title": "SOLAR PANELS",
+		"text": "They turn sunlight into ENERGY. Each working panel makes 1 bolt of power by day. At night they make nothing at all!"},
+	{"pos": Vector2(1420, 2400), "title": "THE BATTERY",
+		"text": "It stores energy for the night. Fill it up by day. When the Sun is gone, the battery is all you have."},
+	{"pos": Vector2(4480, 1760), "title": "OXYGEN MACHINE",
+		"text": "It turns Mars air into air we can breathe, like NASA's MOXIE experiment. ON: oxygen goes up. But it uses 2 bolts of power."},
+	{"pos": Vector2(560, 3200), "title": "GREENHOUSE",
+		"text": "Food grows here under grow lights. ON: food goes up. But the lights use 2 bolts of power."},
+	{"pos": Vector2(5300, 1740), "title": "HEATER",
+		"text": "It keeps everyone warm on FREEZING nights and uses 2 bolts. On normal nights our thick walls are enough: leave it OFF."},
+	{"pos": Vector2(4900, 2490), "title": "RADIATION SHIELD",
+		"text": "When the Sun sends a solar flare, this shield protects everyone. It uses a lot: 3 bolts. Switch it ON only when a flare hits."},
+	{"pos": Vector2(4940, 800), "title": "THE MINE",
+		"text": "The miners dig up ore. Walk to a miner and press E to collect it. Every ore becomes 1 spare part."},
+	{"pos": Vector2(4700, 3300), "title": "WORKSHOP",
+		"text": "No ore? The workshop can build a spare part, but each one costs 25 energy. Spare parts repair machines and build new ones."},
+	{"pos": Vector2(1460, 1880), "title": "EMPTY PLOTS",
+		"text": "Build here! A new solar panel costs 3 spare parts. A wind turbine costs 4, but it also works at night."},
+	{"pos": Vector2(3560, 1850), "title": "ANTENNA",
+		"text": "It sends the map picture and the storm warnings of Mars News. Rovers are parked by the roads: press E to drive one."},
+	{"pos": Vector2(760, 760), "title": "ROCKET PAD",
+		"text": "The President's rocket will land here in {sols} sols with the new settlers. Keep New Hope running until then!"},
+	{"title": "EVERY CHOICE HAS A COST",
+		"text": "There is never enough power for everything. Switching one thing ON often means switching another OFF. Think first, then choose. Good luck, Operator!"},
+]
 
 # which kind of problem a broken machine counts as
 const BROKEN_KIND := {
@@ -58,71 +214,132 @@ const PLACES := {
 }
 
 # Every kind of problem: who notices it, who knows how to fix it, and what they say.
+# "where" is how a colonist explains the way while the map has no picture.
 const FAULTS := {
 	"panels": {
-		"reporter": "nova", "expert": "mira", "also": "dust",
-		"report": "The storm smashed some of our solar panels! A broken panel makes no energy at all.",
-		"how": "A broken panel needs 1 spare part. Stand next to it and hold E. Spare parts are made from ore: collect ore from the miners at the mine.",
-		"again": "You know what to do: repair each one with a spare part.",
-		"task": "Repair the broken solar panels",
+		"reporter": "nova", "expert": "nova", "also": "dust",
+		"where": "The solar field is west of the town.",
+		"report": "Some of our solar panels are broken! A broken panel makes no energy at all.",
+		"how": "Walk to a broken panel and press E. Then you choose: a FULL REPAIR uses 1 spare part and lasts. A QUICK PATCH is free, but it falls off the next morning.",
+		"again": "You know what to do: full repair or quick patch, your choice.",
+		"task": "Fix the broken solar panels",
 	},
 	"dust": {
-		"reporter": "nova", "expert": "mira", "also": "",
-		"report": "The storm left our solar panels covered in dust! A dusty panel only makes half its energy.",
+		"reporter": "nova", "expert": "nova", "also": "",
+		"where": "The solar field is west of the town.",
+		"report": "Our solar panels are covered in dust! A dusty panel only makes half its energy.",
 		"how": "Dust blocks the sunlight. NASA's Mars rovers have lost power the same way. Wipe each panel clean: hold E next to it. It costs no spare parts, only time.",
 		"again": "Wipe each panel clean: hold E next to it. It costs nothing but time.",
 		"task": "Wipe the dust off the solar panels",
 	},
 	"battery": {
-		"reporter": "nova", "expert": "mira", "also": "",
-		"report": "The battery is leaking energy! If we do nothing, it will be empty before the night is over.",
-		"how": "A leaking battery wastes energy all the time. Repair it with 1 spare part: hold E next to the battery in the solar field.",
-		"again": "Repair the battery with 1 spare part.",
-		"task": "Repair the leaking battery",
+		"reporter": "nova", "expert": "nova", "also": "",
+		"where": "The battery stands in the solar field in the west, just below the panels.",
+		"report": "The battery is leaking energy! It wastes 2 bolts of power all the time.",
+		"how": "Walk to the battery and press E. A full repair uses 1 spare part. A quick patch is free, but it falls off the next morning.",
+		"again": "Fix the battery: full repair or quick patch.",
+		"task": "Fix the leaking battery",
 	},
 	"cable": {
-		"reporter": "ada", "expert": "mira", "also": "",
+		"reporter": "ada", "expert": "nova", "also": "",
+		"where": "It is the pole next to the battery, in the solar field in the west.",
 		"report": "The lights keep flickering! Something must be wrong with the power line from the solar field.",
-		"how": "The power line carries energy from the solar field to the colony. While it is broken, only half of the energy arrives. Repair the power line pole near the battery with 1 spare part.",
-		"again": "Repair the power line pole near the battery with 1 spare part.",
-		"task": "Repair the power line",
+		"how": "The power line carries energy from the solar field to the town. While it is broken, only half of the energy arrives. Walk to the pole next to the battery and press E: full repair or quick patch.",
+		"again": "Fix the power line pole next to the battery.",
+		"task": "Fix the power line",
 	},
 	"antenna": {
 		"reporter": "ada", "expert": "mira", "also": "",
-		"report": "I cannot broadcast! The antenna is broken, so there are no storm warnings and your map is dark.",
-		"how": "The antenna sends the news and the map signal. It stands right next to the command center. Repair it with 1 spare part.",
-		"again": "Repair the antenna next to the command center with 1 spare part.",
-		"task": "Repair the antenna",
+		"where": "The antenna stands right next to the Command Center, in the middle of the town.",
+		"report": "I cannot broadcast! The antenna is broken. There are no storm warnings, and the map picture is gone: your map only works as a simple radar now.",
+		"how": "The antenna sends the news and the map picture. Walk to it and press E: a full repair uses 1 spare part, a quick patch is free but falls off tomorrow morning.",
+		"again": "Fix the antenna: full repair or quick patch.",
+		"task": "Fix the antenna",
 	},
 	"drill": {
 		"reporter": "bo", "expert": "mira", "also": "",
+		"where": "The drill is at the mine, in the north-east.",
 		"report": "The mine drill is jammed! We cannot dig any ore until it is fixed.",
-		"how": "No drill means no ore, and no ore means no new spare parts. Repair the drill at the mine with 1 spare part.",
-		"again": "Repair the drill with 1 spare part and we will get back to digging.",
-		"task": "Repair the mine drill",
+		"how": "No drill means no ore, and no ore means no new spare parts. Walk to the drill at the mine and press E: full repair or quick patch.",
+		"again": "Fix the drill and we will get back to digging.",
+		"task": "Fix the mine drill",
 	},
 	"oxy": {
 		"reporter": "sam", "expert": "leo", "also": "",
+		"where": "The oxygen machine is east of the town, across the road.",
 		"report": "People are getting dizzy. The oxygen machine has stopped working!",
-		"how": "The oxygen machine turns Mars air into air we can breathe. Repair it with 1 spare part, then check that it is switched ON.",
-		"again": "Repair the oxygen machine with 1 spare part, then check that it is ON.",
-		"task": "Repair the oxygen machine",
+		"how": "The oxygen machine turns Mars air into air we can breathe. Walk to it and press E: full repair or quick patch. Then check that it is switched ON.",
+		"again": "Fix the oxygen machine, then check that it is ON.",
+		"task": "Fix the oxygen machine",
 	},
 	"leak": {
 		"reporter": "sam", "expert": "leo", "also": "",
+		"where": "Look for the red AIR LEAK! sign on a building.",
 		"report": "A meteorite hit a home! Air is leaking out.",
-		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Seal the hole with 1 spare part: hold E next to the damaged building.",
-		"again": "Seal the hole with 1 spare part before we lose too much air.",
+		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Walk to the building and press E: a full repair seals it for good, a quick patch only until tomorrow.",
+		"again": "Seal the hole before we lose too much air.",
 		"task": "Seal the air leak",
 	},
 	"farm": {
-		"reporter": "tom", "expert": "leo", "also": "",
-		"report": "The grow lights in the greenhouse went out! The plants cannot grow in the dark.",
-		"how": "Plants take in the air we breathe out and give back oxygen. Without light they stop. Repair the greenhouse with 1 spare part to get that extra oxygen back.",
-		"again": "Repair the greenhouse with 1 spare part.",
-		"task": "Repair the greenhouse lights",
+		"reporter": "tom", "expert": "tom", "also": "",
+		"where": "The greenhouse is in the south-west.",
+		"report": "The grow lights in the greenhouse went out! Without light the plants stop growing, and we will run out of food.",
+		"how": "Walk to the greenhouse and press E: a full repair uses 1 spare part, a quick patch is free but falls off tomorrow morning. Then check that the lights are ON.",
+		"again": "Fix the greenhouse lights, then check that they are ON.",
+		"task": "Fix the greenhouse lights",
 	},
 }
+
+# A side-quest thing lying on the ground (a giant potato, a runaway robot, a lucky rock).
+class ErrandItem extends Node2D:
+	var what := "item"
+	var errand_id := ""
+	var title := ""
+	var bob := 0.0
+	var art: Node2D
+
+	func build(kind: String) -> void:
+		var shadow := Polygon2D.new()
+		shadow.polygon = _ellipse(24.0, 8.0)
+		shadow.color = Color(0, 0, 0, 0.25)
+		add_child(shadow)
+		art = Node2D.new()
+		add_child(art)
+		if kind == "potato":
+			_shape(_ellipse(28.0, 19.0), Color(0.42, 0.28, 0.15))
+			_shape(_ellipse(25.0, 16.0), Color(0.72, 0.52, 0.3))
+			for spot in [Vector2(-10, -4), Vector2(6, 5), Vector2(12, -6)]:
+				_shape(_ellipse(3.0, 2.0, 8), Color(0.5, 0.34, 0.18), spot)
+		elif kind == "robot":
+			_shape(_ellipse(24.0, 15.0), Color(0.2, 0.22, 0.26))
+			_shape(_ellipse(21.0, 12.0), Color(0.78, 0.8, 0.85))
+			_shape(_ellipse(12.0, 6.0), Color(0.92, 0.93, 0.96), Vector2(0, -3))
+			_shape(_ellipse(3.5, 3.5, 10), Color(0.3, 0.7, 1.0), Vector2(0, -4))
+		else:
+			_shape(PackedVector2Array([Vector2(-20, 6), Vector2(-14, -12), Vector2(4, -17), Vector2(19, -5), Vector2(15, 10), Vector2(-6, 13)]), Color(0.3, 0.16, 0.4))
+			_shape(PackedVector2Array([Vector2(-16, 4), Vector2(-11, -9), Vector2(3, -13), Vector2(15, -4), Vector2(12, 7), Vector2(-5, 10)]), Color(0.66, 0.4, 0.9))
+			_shape(PackedVector2Array([Vector2(4, -10), Vector2(6, -6), Vector2(10, -5), Vector2(6, -3), Vector2(4, 1), Vector2(2, -3), Vector2(-2, -5), Vector2(2, -6)]), Color(1, 1, 1))
+
+	func _shape(points: PackedVector2Array, color: Color, offset := Vector2.ZERO) -> void:
+		var poly := Polygon2D.new()
+		poly.polygon = points
+		poly.color = color
+		poly.position = offset
+		art.add_child(poly)
+
+	func _ellipse(rx: float, ry: float, n: int = 18) -> PackedVector2Array:
+		var pts := PackedVector2Array()
+		for i in n:
+			var a: float = TAU * float(i) / float(n)
+			pts.append(Vector2(cos(a) * rx, sin(a) * ry))
+		return pts
+
+	func _process(delta: float) -> void:
+		# hop a little so it is easy to spot
+		bob += delta
+		if art != null:
+			art.position.y = -16.0 - absf(sin(bob * 3.0)) * 8.0
+
 
 var energy := START_ENERGY
 var oxygen := START_OXYGEN
@@ -134,7 +351,14 @@ var sol := 0                      # 0 means the first sol
 var sol_time := 0.0
 var elapsed := 0.0
 var game_over := false
-var night_announced := false
+var food := START_FOOD
+var energy_cap := 100.0           # how full the battery can get (lower the day after a battery boost)
+var made_bolts := 0.0             # power being made right now
+var used_bolts := 0.0             # power being used right now
+var trend := [0, 0, 0]            # energy, oxygen, food: going up (+1) or down (-1)
+var last_phase := "day"
+var low_food_warned := false
+var hungry_warned := false
 var low_oxygen_warned := false
 var low_energy_warned := false
 var drive_warn := 0.0
@@ -183,15 +407,55 @@ var hit_cooldown := 0.0
 var quests: Array = []            # problems the colony has right now
 var learned := {}                 # kinds of problem the player already knows how to fix
 
+var day_types: Array = []         # what kind of day each sol is: "start", "storm", "flare_day", ...
+var today_cold := false           # true when tonight is a freezing night: the heater is needed
+var errands: Array = []           # side quests that are going on right now
+var errand_items: Array = []      # side-quest things lying on the ground
+
+# the ending: the President's rocket lands
+var cinematic := false
+var cine_t := 0.0
+var cine_stage := ""
+var cine_cam_from := Vector2.ZERO
+var cine_sky_from := Color(1, 1, 1)
+var rocket: Node2D
+var rocket_flame: Polygon2D
+var rocket_door: ColorRect
+var dust_puffs: Array = []
+var arrivals: Array = []          # [actor, where to walk to, seconds to wait before stepping out]
+
 var dialog_queue: Array = []
 var dialog_open := false
 var hold_target = null
 var hold_time := 0.0
+# how far each hold job got before the player let go, so it resumes instead of restarting
+# key: the thing's instance id, value: {"text": action text, "time": seconds already held}
+var hold_saved := {}
+
+var fix_method := {}              # how the player chose to fix a thing: instance id -> "part" or "patch"
+var decisions: Array = []         # decisions waiting for an answer: {"id": name}
+var pending: Array = []           # things that arrive on a later morning: {"sol", "effects", "text"}
+var storm_fold := false           # the player chose to fold the panels for today's storm
+var restart_list: Array = []      # machines a power cut switched off; they start again when there is power
+var fold_left := 0.0              # seconds until the folded panels are open again
+
+var choice_open := false          # a decision card is on the screen
+var choice_sel := 0
+var choice_time := 0.0
+var choice_enabled := [true, true]
+var choice_done := Callable()
+var after_dialog: Array = []      # things to do when the last dialog line has been closed
+
+var touring := false              # the machine tour at the start of the game
+var tour_i := 0
+var tour_t := 0.0
+var tour_from := Vector2.ZERO
+var tour_to := Vector2.ZERO
 
 var stats := {
-	"cold": 0.0, "radiation": 0.0, "debris": 0.0, "blackout": 0.0, "driven": 0.0,
-	"repairs": 0, "parts_used": 0, "parts_built": 0, "ore": 0, "built": 0, "cleaned": 0,
-	"lowest_oxygen": 100.0,
+	"cold": 0.0, "radiation": 0.0, "debris": 0.0, "hunger": 0.0, "blackout": 0.0, "driven": 0.0,
+	"repairs": 0, "patches": 0, "parts_used": 0, "parts_built": 0, "ore": 0, "built": 0, "cleaned": 0,
+	"lowest_oxygen": 100.0, "lowest_food": 100.0, "side": 0, "decisions": 0,
 }
 var rng := RandomNumberGenerator.new()
 
@@ -201,6 +465,8 @@ func _ready() -> void:
 	Game.paused = false
 	Game.shelter = false
 	_build_world()
+	hud.choice_picked.connect(_choose)
+	hud.tour_skip.connect(_end_tour)
 	_schedule_events()
 	weather_start = rng.randi() % Game.weather().size()
 	_start_sol(0)
@@ -260,9 +526,11 @@ func _build_world() -> void:
 	workshop = by_id["workshop"]
 	oxy_machine.switchable = true
 	oxy_machine.is_on = true
+	greenhouse.switchable = true      # the grow lights
+	greenhouse.is_on = true
 	heater.switchable = true
 	shield.switchable = true
-	for m in [oxy_machine, heater, shield]:
+	for m in [oxy_machine, greenhouse, heater, shield]:
 		m.refresh()
 
 	# --- named colonists
@@ -327,6 +595,7 @@ func _build_world() -> void:
 	player.position = WorldData.PLAYER_START
 	player.world_size = WorldData.WORLD_SIZE
 	player.solids = solids
+	player.on_wrap = _snap_camera
 	Game.player_pos = player.position
 
 	cam = Camera2D.new()
@@ -350,90 +619,196 @@ func _build_world() -> void:
 # =====================================================================
 
 func _schedule_events() -> void:
+	# The President is away for Game.TOTAL_SOLS sols. Every game gets a new plan:
+	#   sol 1 is always an easy first day: two broken solar panels, later a broken antenna.
+	#   QUIET_DAYS sols have no big danger: a breakdown and some funny side quests.
+	#   The other sols each get ONE big event: a dust storm, a solar flare by day,
+	#   a solar flare on a freezing night, or a freezing night.
+	#   Every sol after the first also brings one decision.
 	events.clear()
 	var flare_list: Array = Game.flares().duplicate()
 	flare_list.shuffle()
 	var flare_i := 0
+	var day: float = Game.DAY_SECONDS
+	var night_from: float = Game.DAY_SECONDS + Game.DUSK_SECONDS
+	var night_to: float = night_from + Game.NIGHT_SECONDS
 
-	# Sol 1 always has the big dust storm from the story.
-	events.append(_event(0, 60.0, "dust", 3))
+	var big := ["storm", "flare_day", "flare_night", "cold"]
+	var rest := []
+	for i in Game.TOTAL_SOLS - 1:
+		if i < QUIET_DAYS:
+			rest.append("quiet")
+		else:
+			rest.append(big[(i - QUIET_DAYS) % big.size()])
+	# a fair order: sol 2 is never the hardest day, and the last sol is not a quiet one
+	for attempt in 40:
+		rest.shuffle()
+		if rest.is_empty():
+			break
+		if str(rest[0]) != "flare_night" and (rest.size() < 3 or str(rest[rest.size() - 1]) != "quiet"):
+			break
+	day_types = ["start"] + rest
 
-	# Every kind of breakdown happens at least once, in a different order each game.
-	var pool := ["oxy", "battery", "leak", "cable", "drill", "antenna", "farm", "dust", "dust"]
+	# sol 1: the easy start
+	var first: Dictionary = _event(0, 20.0, "panels_break", 2)
+	first["report"] = "Good morning! Two of our solar panels stopped working last night. A broken panel makes no energy at all."
+	events.append(first)
+	events.append(_event(0, day * 0.6, "antenna", 1))
+
+	# one ordinary breakdown and one decision on every other sol
+	var pool := ["oxy", "battery", "leak", "cable", "drill", "farm", "dusty"]
 	pool.shuffle()
+	var side_pool: Array = SIDE_QUESTS.keys()
+	side_pool.shuffle()
+	var choice_pool := []
+	for key in DILEMMAS.keys():
+		if str(key) != "fold":
+			choice_pool.append(str(key))
+	choice_pool.shuffle()
+	var side_i := 0
 	for s in range(1, Game.TOTAL_SOLS):
-		var first: String = pool[(s - 1) % pool.size()]
-		var day_at: float = rng.randf_range(30.0, 85.0)
-		if s == 1:
-			# the second sol also teaches the shield, in daylight
-			var day_flare: Dictionary = _event(s, 38.0, "flare", 0)
+		var kind: String = day_types[s]
+		var fault: String = pool[(s - 1) % pool.size()]
+		var pick: Dictionary = _event(s, rng.randf_range(12.0, 24.0), "decision", 0)
+		pick["side"] = choice_pool[(s - 1) % choice_pool.size()]
+		if kind == "storm":
+			pick["side"] = "fold"
+		events.append(pick)
+		if kind == "storm":
+			events.append(_event(s, day * rng.randf_range(0.45, 0.6), "dust", rng.randi_range(2, 3)))
+			events.append(_event(s, day * rng.randf_range(0.85, 0.95), fault, 1))
+		elif kind == "flare_day":
+			events.append(_event(s, day * rng.randf_range(0.2, 0.35), fault, 1))
+			var day_flare: Dictionary = _event(s, day * rng.randf_range(0.55, 0.8), "flare", 0)
 			day_flare["flare"] = flare_list[flare_i % flare_list.size()]
 			flare_i += 1
 			events.append(day_flare)
-			day_at = rng.randf_range(84.0, 96.0)
-		events.append(_event(s, day_at, first, rng.randi_range(1, 2)))
-
-	# Some nights bring a solar flare, some a breakdown.
-	var night_sols := []
-	for s in range(2, Game.TOTAL_SOLS):
-		night_sols.append(s)
-	night_sols.shuffle()
-	var night_kinds := ["oxy", "battery", "leak", "cable", "drill", "farm"]
-	for i in night_sols.size():
-		var ns: int = night_sols[i]
-		var night_at: float = rng.randf_range(DAY_END + 8.0, Game.SOL_SECONDS - 50.0)
-		if i < NIGHT_FLARES:
-			var night_flare: Dictionary = _event(ns, night_at, "flare", 0)
+		elif kind == "flare_night":
+			events.append(_event(s, day * rng.randf_range(0.3, 0.6), fault, 1))
+			var night_flare: Dictionary = _event(s, rng.randf_range(night_from + 15.0, maxf(night_from + 16.0, night_to - 50.0)), "flare", 0)
 			night_flare["flare"] = flare_list[flare_i % flare_list.size()]
 			flare_i += 1
 			events.append(night_flare)
-		elif i < NIGHT_FLARES + NIGHT_FAULTS:
-			var pick: String = night_kinds[rng.randi() % night_kinds.size()]
-			events.append(_event(ns, night_at, pick, 1))
+		elif kind == "cold":
+			events.append(_event(s, day * rng.randf_range(0.3, 0.6), fault, 1))
+		else:
+			# a quiet sol: side quests, and a breakdown in between
+			events.append(_event(s, day * rng.randf_range(0.4, 0.55), fault, 1))
+			for j in SIDE_QUESTS_PER_QUIET_DAY:
+				var side: Dictionary = _event(s, day * (0.12 + 0.55 * float(j)), "side", 0)
+				side["side"] = side_pool[side_i % side_pool.size()]
+				side_i += 1
+				events.append(side)
 
 
 func _event(on_sol: int, at: float, type: String, breaks: int) -> Dictionary:
-	return {"sol": on_sol, "t": at, "type": type, "breaks": breaks, "warned": false, "done": false, "flare": {}}
+	return {"sol": on_sol, "t": at, "type": type, "breaks": breaks, "warned": false, "done": false, "flare": {}, "report": "", "side": ""}
 
 
 func _start_sol(i: int) -> void:
 	sol = i
 	sol_time = 0.0
-	night_announced = false
+	last_phase = "day"
+	storm_fold = false
+	energy_cap = 100.0
+	var kind: String = day_types[i]
+	today_cold = kind == "cold" or kind == "flare_night"
 	var w: Array = Game.weather()
 	today = w[(weather_start + i) % w.size()]
-
-	var dust := false
-	var flare_day := false
-	var flare_night := false
-	for ev in events:
-		if ev["sol"] != i:
-			continue
-		if ev["type"] == "dust":
-			dust = true
-		elif ev["type"] == "flare":
-			if ev["t"] >= DAY_END:
-				flare_night = true
-			else:
-				flare_day = true
+	if today_cold:
+		# freezing nights are real too: the coldest nights NASA's Curiosity rover measured
+		var cold_list: Array = Game.cold_nights()
+		if not cold_list.is_empty():
+			today = cold_list[(weather_start + i) % cold_list.size()]
 
 	if i == 0:
-		_say("Mission Control", "Welcome, Operator! You run the Mars colony New Hope. A day on Mars is called a 'sol'. Keep everyone alive for %d sols." % Game.TOTAL_SOLS)
-		_say("Mission Control", "Watch your bars. ENERGY comes from solar panels and wind turbines. OXYGEN is the air everyone breathes. HEALTH is the long bar at the top. If oxygen or health runs out, the mission ends.")
-		_say("Mission Control", "Machines use energy, and there is never enough for everything. Walk to a machine and press E to switch it on or off. Every choice has a cost!")
-		_say("Mission Control", "When a colonist needs you, a ! appears on the map in the corner. Go and talk to them. Miners dig ore at the mine: collect it to get spare parts. The rovers parked by the roads are faster than walking: press E to drive one.")
+		_say(PRESIDENT, "Good morning, Operator! Big news: hundreds of new settlers are getting ready to move from Earth to our brand-new town, New Hope.")
+		_say(PRESIDENT, "I am flying to Earth to bring them here safely. The trip there and back takes %d sols. A 'sol' is a day on Mars, a little longer than a day on Earth." % Game.TOTAL_SOLS)
+		_say(PRESIDENT, "While I am away, YOU are in charge of New Hope. Keep the colony running until my rocket lands back on the rocket pad. I know you can do it!")
+		if Game.show_tour:
+			_say(PRESIDENT, "Before I go, let me show you around. Watch the screen: the camera will visit every machine.")
+			after_dialog.append(_start_tour)
+		else:
+			_say("Mission Control", "Watch your three bars: ENERGY, OXYGEN and FOOD. Walk to a machine and press E to switch it on or off. There is never enough power for everything, so every choice has a cost!")
+			after_dialog.append(_morning)
+	else:
+		_morning()
 
-	var report: String = "Good morning, New Hope! Sol %d of %d. Today's high is %d C. Tonight's low is %d C, so you will need the heater." % [i + 1, Game.TOTAL_SOLS, int(today["max"]), int(today["min"])]
+
+func _morning() -> void:
+	# what happens when a new sol begins: yesterday's choices arrive, quick patches fall
+	# off, and Ada reads the news
+	var i: int = sol
+	var kind: String = day_types[i]
+
+	# things the player chose yesterday
+	var still := []
+	for p in pending:
+		if int(p["sol"]) > i:
+			still.append(p)
+			continue
+		var effects: Dictionary = p["effects"]
+		_apply_effects(effects)
+		if str(p["text"]) != "":
+			var got: String = _effects_text(effects)
+			if got == "":
+				_say("Yesterday's choice", "%s." % str(p["text"]))
+			else:
+				_say("Yesterday's choice", "%s: %s." % [str(p["text"]), got])
+	pending = still
+
+	# quick patches only last one sol
+	var fallen := {}
+	var count := 0
+	for m in things:
+		if not m.patched:
+			continue
+		m.patched = false
+		var fault: String = m.patch_fault
+		m.patch_fault = ""
+		if m.broken or m.leaking or fault == "":
+			m.refresh()
+			continue          # something broke it again already
+		if fault == "leak":
+			m.leaking = true
+		else:
+			m.broken = true
+		m.refresh()
+		if not fallen.has(fault):
+			fallen[fault] = []
+		fallen[fault].append(m)
+		count += 1
+	for fault in fallen:
+		_start_fault(str(fault), fallen[fault], "", "", "", 2, true)
+
+	var report: String = "Good morning, New Hope! Sol %d of %d. Today's high is %d C." % [i + 1, Game.TOTAL_SOLS, int(today["max"])]
+	if i == Game.TOTAL_SOLS - 1 and i > 0:
+		report = "Good morning, New Hope! This is the LAST sol: the President's rocket lands at the next sunrise. Today's high is %d C." % int(today["max"])
+	if today_cold:
+		report += " Tonight will be FREEZING: %d C. Our homes cannot keep that cold out, so you will need the heater." % int(today["min"])
+		if Game.weather_is_real():
+			report += " NASA's Curiosity rover really measured a night this cold on Mars."
+	else:
+		report += " Tonight's low is %d C, but our thick walls keep the warmth in." % int(today["min"])
 	_say("Ada, Mars News", report)
+	if count == 1:
+		_say("Ada, Mars News", "Bad news: yesterday's quick patch fell off, so one thing is broken again. It is marked with a red !.")
+	elif count > 1:
+		_say("Ada, Mars News", "Bad news: yesterday's %d quick patches fell off, so %d things are broken again. They are marked with a red !." % [count, count])
 	if antenna.broken:
 		_say("Ada, Mars News", "...crackle... The antenna is broken, so I cannot see what the weather will do today. Stay alert!")
 		return
-	if dust:
-		_say("Ada, Mars News", "Warning: a DUST STORM is coming today. Dust blocks the sunlight, so solar panels make less energy. The wind can break panels and throw debris around. Stay out of its way, or wait inside a rover!")
-	if flare_day:
-		_say("Ada, Mars News", "Warning: the Sun is stormy. A SOLAR FLARE could hit today. Radiation is invisible energy that can make people sick. The radiation shield protects us, but it uses a lot of energy.")
-	if flare_night:
-		_say("Ada, Mars News", "Warning: a SOLAR FLARE is expected TONIGHT. Dr. Sam says: turn the shield on! Engineer Mira says: the battery cannot run the shield, the heater and the oxygen machine all night. You must choose.")
+	if kind == "storm":
+		_say("Ada, Mars News", "Warning: a DUST STORM is coming today. Dust blocks the sunlight, so solar panels make less energy. The wind can break panels and throw debris around. Technician Nova wants to ask you something about it.")
+	elif kind == "flare_day":
+		_say("Ada, Mars News", "Warning: the Sun is stormy. A SOLAR FLARE could hit today. Radiation is invisible energy that can make people sick. The radiation shield protects us, but it uses a lot of power: 3 bolts.")
+	elif kind == "flare_night":
+		_say("Ada, Mars News", "Warning: a SOLAR FLARE is expected TONIGHT, on a freezing night. Dr. Sam says: switch the shield on! Engineer Mira says: the battery cannot run the shield, the heater and everything else all night. Fill the battery by day, then choose.")
+	elif kind == "quiet":
+		_say("Ada, Mars News", "No storms on the radar today! A good day to fix things, fill the battery and help your neighbours.")
+	elif kind == "start":
+		_say("Ada, Mars News", "No storms on the radar today. A calm day to learn how everything works!")
+
 
 
 # =====================================================================
@@ -443,11 +818,22 @@ func _start_sol(i: int) -> void:
 func _process(delta: float) -> void:
 	if game_over:
 		return
-	Game.paused = dialog_open
+	if cinematic:
+		_update_arrival(delta)
+		return
+	if choice_open:
+		choice_time += delta
+	Game.paused = dialog_open or choice_open or touring
+	if touring:
+		_update_tour(delta)
+		Game.player_pos = player.position
+		_update_look(delta)
+		_update_hud()
+		return
 	if not Game.paused:
 		_drive(delta)
 		_simulate(delta)
-		if game_over:
+		if game_over or cinematic:
 			return
 		_update_flying(delta)
 		_update_hold(delta)
@@ -458,18 +844,55 @@ func _process(delta: float) -> void:
 	_update_hud()
 
 
+func _phase() -> String:
+	# the four parts of a sol
+	if sol_time < Game.DAY_SECONDS:
+		return "day"
+	if sol_time < Game.DAY_SECONDS + Game.DUSK_SECONDS:
+		return "dusk"
+	if sol_time < Game.DAY_SECONDS + Game.DUSK_SECONDS + Game.NIGHT_SECONDS:
+		return "night"
+	return "dawn"
+
+
 func _sun() -> float:
-	if sol_time < 10.0:
-		return sol_time / 10.0
-	if sol_time < DAY_END - 15.0:
+	# how much sunlight there is: 1 by day, 0 at night, and it changes slowly
+	# during sunset and sunrise so the day never flips to night in one moment
+	var day_end: float = Game.DAY_SECONDS
+	var dusk_end: float = day_end + Game.DUSK_SECONDS
+	var night_end: float = dusk_end + Game.NIGHT_SECONDS
+	if sol_time < day_end:
 		return 1.0
-	if sol_time < DAY_END:
-		return (DAY_END - sol_time) / 15.0
-	return 0.0
+	if sol_time < dusk_end:
+		return clampf(1.0 - (sol_time - day_end) / maxf(1.0, Game.DUSK_SECONDS), 0.0, 1.0)
+	if sol_time < night_end:
+		return 0.0
+	return clampf((sol_time - night_end) / maxf(1.0, Game.DAWN_SECONDS), 0.0, 1.0)
+
+
+func _sky_color() -> Color:
+	# the colour of the light: white by day, a warm glow at sunset and sunrise, blue at night
+	var day := Color(1, 1, 1)
+	var glow := Color(1.0, 0.74, 0.58)
+	var night := Color(0.4, 0.44, 0.76)
+	var dark: float = 1.0 - _sun()
+	if dark <= 0.0:
+		return day
+	if dark >= 1.0:
+		return night
+	if dark < 0.5:
+		return day.lerp(glow, dark / 0.5)
+	return glow.lerp(night, (dark - 0.5) / 0.5)
 
 
 func _is_night() -> bool:
-	return sol_time >= DAY_END
+	# dark enough that people stay indoors and the cold bites
+	return _sun() < 0.35
+
+
+func _cold_now() -> bool:
+	# only freezing nights hurt; on other nights the walls of our homes keep the warmth in
+	return _is_night() and today_cold
 
 
 func _count_broken_panels() -> int:
@@ -493,64 +916,41 @@ func _simulate(delta: float) -> void:
 	sol_time += delta
 	if sol_time >= Game.SOL_SECONDS:
 		if sol + 1 >= Game.TOTAL_SOLS:
-			_finish(true, "")
+			# the colony made it: the President's rocket comes home
+			_start_arrival()
 			return
 		_start_sol(sol + 1)
 		return
 
 	_run_events()
-
-	if _is_night() and not night_announced:
-		night_announced = true
-		hud.show_banner("NIGHT FALLS", "No sunlight means no solar energy. It will drop to %d C. Turn the heater ON to stay warm." % int(today["min"]), 10.0)
+	_phase_news()
 
 	# ---- energy
-	var sun: float = _sun()
-	var storm: bool = storm_left > 0.0
-	var gain: float = 0.0
-	for p in panels:
-		if p.broken:
-			continue
-		var out: float = PANEL_POWER * sun
-		if storm:
-			out *= STORM_SUN
-		if p.dusty:
-			out *= DUSTY_FACTOR
-		gain += out
-	var wind: float = TURBINE_POWER
-	if storm:
-		wind *= STORM_WIND
-	gain += wind * float(turbines.size())
-	if relay.broken:
-		gain *= CABLE_FACTOR
-	var use: float = BASE_USE
-	if oxy_machine.works():
-		use += OXY_USE
-	if heater.works():
-		use += HEAT_USE
-	if shield.works():
-		use += SHIELD_USE
-	if battery.broken:
-		use += BATTERY_LEAK
-	net_power = gain - use
-	energy = clampf(energy + net_power * delta, 0.0, 100.0)
+	made_bolts = _power_made()
+	used_bolts = _power_used()
+	net_power = (made_bolts - used_bolts) * BOLT
+	energy = clampf(energy + net_power * delta, 0.0, energy_cap)
 
 	if energy <= 0.0:
 		stats["blackout"] += delta
 		var any_on := false
-		for m in [oxy_machine, heater, shield]:
+		for m in [oxy_machine, greenhouse, heater, shield]:
 			if m.is_on:
 				m.is_on = false
 				m.refresh()
 				any_on = true
+				if (m == oxy_machine or m == greenhouse) and not restart_list.has(m):
+					restart_list.append(m)
 		if any_on:
-			hud.show_banner("POWER OUT!", "The battery is empty, so every machine switched off. Fix or build solar panels, or wait for sunlight, then switch the machines back on.", 11.0)
+			hud.show_banner("POWER OUT!", "The battery is empty, so every machine switched itself off. The oxygen machine and the greenhouse lights will start again when the Sun is back.", 11.0)
+	elif not restart_list.is_empty():
+		_try_restart()
 
 	# ---- oxygen
 	var air: float = -BREATHING
 	if oxy_machine.works():
 		air += OXY_MAKE
-	if not greenhouse.broken:
+	if greenhouse.works():
 		air += FARM_OXYGEN
 	for h in homes:
 		if h.leaking:
@@ -559,16 +959,37 @@ func _simulate(delta: float) -> void:
 	if oxygen < float(stats["lowest_oxygen"]):
 		stats["lowest_oxygen"] = oxygen
 
+	# ---- food
+	var grow: float = -EATING
+	if greenhouse.works():
+		grow += FOOD_GROW
+	food = clampf(food + grow * delta, 0.0, 100.0)
+	if food < float(stats["lowest_food"]):
+		stats["lowest_food"] = food
+
+	# the little arrows next to the bars
+	trend = [_sign(net_power), _sign(air), _sign(grow)]
+	if net_power > 0.0 and energy >= energy_cap - 0.05:
+		trend[0] = 0
+	if air > 0.0 and oxygen >= 99.95:
+		trend[1] = 0
+	if grow > 0.0 and food >= 99.95:
+		trend[2] = 0
+
 	# ---- health
 	var in_danger := false
 	if flare_left > 0.0 and not shield.works():
 		health -= RAD_DAMAGE * delta
 		stats["radiation"] += RAD_DAMAGE * delta
 		in_danger = true
-	if _is_night() and not heater.works():
+	if _cold_now() and not heater.works():
 		var cold: float = COLD_DAMAGE * clampf(-float(today["min"]) / 75.0, 0.6, 1.4)
 		health -= cold * delta
 		stats["cold"] += cold * delta
+		in_danger = true
+	if food <= 0.0:
+		health -= HUNGER_DAMAGE * delta
+		stats["hunger"] += HUNGER_DAMAGE * delta
 		in_danger = true
 	if not in_danger:
 		health = minf(100.0, health + HEALTH_REGEN * delta)
@@ -588,6 +1009,10 @@ func _simulate(delta: float) -> void:
 		storm_left -= delta
 		if storm_left <= 0.0:
 			_end_storm()
+	if fold_left > 0.0:
+		fold_left -= delta
+		if fold_left <= 0.0:
+			_unfold_panels()
 	if flare_left > 0.0:
 		flare_left -= delta
 		if flare_left <= 0.0:
@@ -598,9 +1023,19 @@ func _simulate(delta: float) -> void:
 	# ---- warnings
 	if oxygen < 25.0 and not low_oxygen_warned:
 		low_oxygen_warned = true
-		hud.show_banner("OXYGEN IS LOW", "Make sure the oxygen machine is ON and working, and listen to anyone with a ! over their head.", 9.0)
+		hud.show_banner("OXYGEN IS RUNNING LOW", "Make sure the oxygen machine is ON and working, and listen to anyone with a ! over their head.", 9.0)
 	elif oxygen > 40.0:
 		low_oxygen_warned = false
+	if food < 25.0 and not low_food_warned:
+		low_food_warned = true
+		hud.show_banner("FOOD IS RUNNING LOW", "Make sure the greenhouse lights are ON and working. Food grows slowly, so do not wait too long!", 9.0)
+	elif food > 40.0:
+		low_food_warned = false
+	if food <= 0.0 and not hungry_warned:
+		hungry_warned = true
+		hud.show_banner("NO FOOD LEFT!", "Everyone is hungry, and hungry colonists lose health. Switch the greenhouse lights ON!", 10.0)
+	elif food > 5.0:
+		hungry_warned = false
 	if energy < 15.0 and energy > 0.0 and not low_energy_warned:
 		low_energy_warned = true
 		hud.show_banner("BATTERY IS LOW", "Switch off something you do not need right now, or everything will shut down.", 9.0)
@@ -611,6 +1046,92 @@ func _simulate(delta: float) -> void:
 		_finish(false, "oxygen")
 	elif health <= 0.0:
 		_finish(false, "health")
+
+
+func _try_restart() -> void:
+	# after a power cut, the oxygen machine and the greenhouse lights start again by
+	# themselves as soon as the panels make enough power for them
+	if energy < 8.0:
+		return
+	var m = restart_list[0]
+	if m.broken or m.is_on:
+		restart_list.remove_at(0)
+		return
+	var need: float = float(SWITCHES[m.kind]["bolts"])
+	if _power_made() >= _power_used() + need - 0.25:
+		m.is_on = true
+		m.refresh()
+		restart_list.remove_at(0)
+		hud.toast("The power is back: the %s started again." % str(SWITCHES[m.kind]["name"]))
+
+
+func _sign(v: float) -> int:
+	if v > 0.004:
+		return 1
+	if v < -0.004:
+		return -1
+	return 0
+
+
+func _power_made() -> float:
+	# bolts of power the colony is making right now
+	var sun: float = _sun()
+	var storm: bool = storm_left > 0.0
+	var made := 0.0
+	if fold_left <= 0.0:
+		for p in panels:
+			if p.broken:
+				continue
+			var out: float = PANEL_BOLTS * sun
+			if storm:
+				out *= STORM_SUN
+			if p.dusty:
+				out *= DUSTY_FACTOR
+			made += out
+	var wind: float = TURBINE_BOLTS
+	if storm:
+		wind *= STORM_WIND
+	made += wind * float(turbines.size())
+	if relay.broken:
+		made *= CABLE_FACTOR
+	return made
+
+
+func _power_used() -> float:
+	# bolts of power the colony is using right now
+	var used: float = BASE_BOLTS
+	if oxy_machine.works():
+		used += OXY_BOLTS
+	if greenhouse.works():
+		used += FARM_BOLTS
+	if heater.works():
+		used += HEAT_BOLTS
+	if shield.works():
+		used += SHIELD_BOLTS
+	if battery.broken:
+		used += LEAK_BOLTS
+	return used
+
+
+func _phase_news() -> void:
+	# tell the player when the day turns: sunset, night and sunrise each take their time
+	var p: String = _phase()
+	if p == last_phase:
+		return
+	last_phase = p
+	if p == "dusk":
+		_expire_decisions()
+		if today_cold:
+			hud.show_banner("SUNSET", "The Sun is going down. Tonight is FREEZING (%d C): you will need the heater. What else should the battery run?" % int(today["min"]), 11.0)
+		else:
+			hud.show_banner("SUNSET", "The Sun is going down. Soon the solar panels make nothing, and the battery is all we have. What should it run tonight?", 11.0)
+	elif p == "night":
+		if today_cold and not heater.works():
+			hud.show_banner("FREEZING NIGHT", "It is %d C outside! Switch the heater ON, or everyone loses health." % int(today["min"]), 10.0)
+		else:
+			hud.toast("Night has fallen. Hold on until sunrise!")
+	elif p == "dawn":
+		hud.show_banner("SUNRISE", "The Sun is coming back. The solar panels are waking up!", 7.0)
 
 
 # =====================================================================
@@ -643,11 +1164,49 @@ func _start_event(ev: Dictionary) -> void:
 		var cls: String = str(rec.get("cls", "X1.0"))
 		flare_left = _flare_seconds(cls)
 		flare_text = "Class %s flare. NASA recorded a real flare like this on %s." % [cls, str(rec.get("date", ""))]
-		hud.show_banner("RADIATION STORM!", "Turn the shield ON or you will lose health. " + flare_text, 12.0)
+		hud.show_banner("RADIATION STORM!", "Switch the shield ON or everyone loses health. " + flare_text, 12.0)
 	elif type == "leak":
 		_meteorite()
+	elif type == "panels_break":
+		_break_panels(int(ev["breaks"]), str(ev["report"]))
+	elif type == "dusty":
+		_dust_panels()
+	elif type == "side":
+		_start_errand(str(ev["side"]))
+	elif type == "decision":
+		_start_decision(str(ev["side"]))
 	else:
 		_break_machine(type)
+
+
+func _break_panels(count: int, report: String) -> void:
+	# solar panels that stop working without a storm (the easy first sol)
+	var working := []
+	for p in panels:
+		if not p.broken:
+			working.append(p)
+	working.shuffle()
+	var hit := []
+	for i in mini(count, working.size()):
+		working[i].broken = true
+		working[i].refresh()
+		hit.append(working[i])
+	_start_fault("panels", hit, "", "", report)
+
+
+func _dust_panels() -> void:
+	# a windy day leaves dust on a few panels (no storm)
+	var clean := []
+	for p in panels:
+		if not p.broken and not p.dusty:
+			clean.append(p)
+	clean.shuffle()
+	var hit := []
+	for i in mini(3, clean.size()):
+		clean[i].dusty = true
+		clean[i].refresh()
+		hit.append(clean[i])
+	_start_fault("dust", hit, "", "", "A strong wind blew dust over some of our solar panels! A dusty panel only makes half its energy.")
 
 
 func _flare_seconds(cls: String) -> float:
@@ -667,6 +1226,15 @@ func _start_storm(breaks: int) -> void:
 	debris_timer = 1.5
 	for t in turbines:
 		t.anim_speed = 16.0
+	# if the player never answered Nova, the panels simply stay open
+	_drop_decision("fold")
+	if storm_fold:
+		fold_left = STORM_SECONDS + FOLD_EXTRA
+		for p in panels:
+			p.folded = true
+			p.refresh()
+		hud.show_banner("DUST STORM!", "The panels are folded and safe, but they make no energy. The wind is throwing debris around: dodge it, or wait inside a rover.", 10.0)
+		return
 	var working := []
 	for p in panels:
 		if not p.broken:
@@ -687,6 +1255,9 @@ func _end_storm() -> void:
 	storm_left = 0.0
 	for t in turbines:
 		t.anim_speed = 6.0
+	if storm_fold:
+		hud.show_banner("THE STORM HAS PASSED", "Not a scratch on the folded panels! They need a little while to open again.", 7.0)
+		return
 	var dusted := []
 	for p in panels:
 		if not p.broken and not p.dusty:
@@ -695,6 +1266,15 @@ func _end_storm() -> void:
 			dusted.append(p)
 	hud.show_banner("THE STORM HAS PASSED", "The air is clear again.", 6.0)
 	_start_fault("dust", dusted, "THE STORM HAS PASSED", "")
+
+
+func _unfold_panels() -> void:
+	fold_left = 0.0
+	for p in panels:
+		if p.folded:
+			p.folded = false
+			p.refresh()
+	hud.toast("The solar panels are open again.")
 
 
 func _meteorite() -> void:
@@ -731,7 +1311,7 @@ func _break_machine(fault: String) -> void:
 	m.broken = true
 	m.refresh()
 	if fault == "antenna":
-		_start_fault(fault, [m], "NO SIGNAL!", "The map and the storm warnings are down.")
+		_start_fault(fault, [m], "NO SIGNAL!", "The map picture and the storm warnings are down.")
 	else:
 		_start_fault(fault, [m], "", "")
 
@@ -771,7 +1351,22 @@ func _knows_fix(fault: String) -> bool:
 	return false
 
 
-func _start_fault(fault: String, targets: Array, title: String, lead: String) -> void:
+func _map_word() -> String:
+	# while the antenna is broken the map has no picture: it only works as a radar
+	if antenna.broken:
+		return "radar"
+	return "map"
+
+
+func _map_line(fault: String) -> String:
+	# what a colonist says about finding the problem. While the antenna is broken they
+	# explain the way in words instead of pointing at a map that has no picture.
+	if antenna.broken:
+		return "The map has no picture right now, so listen: %s Your radar still shows a red ! there." % str(FAULTS[fault]["where"])
+	return "I marked it on your map."
+
+
+func _start_fault(fault: String, targets: Array, title: String, lead: String, report: String = "", stage: int = 0, quiet: bool = false) -> void:
 	if targets.is_empty():
 		return
 	for q in quests:
@@ -781,17 +1376,17 @@ func _start_fault(fault: String, targets: Array, title: String, lead: String) ->
 					q["targets"].append(m)
 			_refresh_quests()
 			return
-	quests.append({"kind": fault, "targets": targets, "stage": 0})
+	quests.append({"kind": fault, "targets": targets, "stage": stage, "report": report})
 	_refresh_quests()
+	if quiet:
+		return
 	var f: Dictionary = FAULTS[fault]
 	var who = npc_by_id[f["reporter"]]
 	var head: String = title
 	if head == "":
 		head = "SOMEONE NEEDS YOU"
 	var where: String = str(PLACES.get(who.npc_id, "the colony"))
-	var text: String = "%s at %s has something to tell you." % [who.npc_name, where]
-	if not antenna.broken:
-		text += " Follow the ! on your map."
+	var text: String = "%s at %s has something to tell you. Follow the ! on your %s." % [who.npc_name, where, _map_word()]
 	if lead != "":
 		text = lead + " " + text
 	hud.show_banner(head, text, 11.0)
@@ -817,6 +1412,12 @@ func _refresh_quests() -> void:
 			npc_by_id[f["reporter"]].set_alert(true)
 		elif q["stage"] == 1:
 			npc_by_id[f["expert"]].set_alert(true)
+	for e in errands:
+		var who: String = _errand_npc(e)
+		if who != "":
+			npc_by_id[who].set_alert(true)
+	for d in decisions:
+		npc_by_id[DILEMMAS[d["id"]]["npc"]].set_alert(true)
 
 
 func _npc_has_quest(npc) -> bool:
@@ -826,11 +1427,19 @@ func _npc_has_quest(npc) -> bool:
 			return true
 		if q["stage"] == 1 and f["expert"] == npc.npc_id:
 			return true
+	for e in errands:
+		if _errand_npc(e) == npc.npc_id:
+			return true
+	for d in decisions:
+		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
+			return true
 	return false
 
 
 func _report_text(q: Dictionary) -> String:
 	var f: Dictionary = FAULTS[q["kind"]]
+	if str(q.get("report", "")) != "":
+		return str(q["report"])
 	if q["kind"] == "leak":
 		var names := PackedStringArray()
 		for m in q["targets"]:
@@ -848,27 +1457,27 @@ func _talk(npc) -> void:
 			said = true
 			_say(npc.npc_name, _report_text(q))
 			if learned.has(fault):
-				_say(npc.npc_name, str(f["again"]) + " I marked it on your map.")
+				_say(npc.npc_name, "%s %s" % [str(f["again"]), _map_line(fault)])
+				q["stage"] = 2
+			elif f["expert"] == f["reporter"]:
+				_teach(npc, fault)
 				q["stage"] = 2
 			else:
 				var expert = npc_by_id[f["expert"]]
 				var where: String = str(PLACES.get(expert.npc_id, "the colony"))
-				_say(npc.npc_name, "I do not know how to fix it. Ask %s at %s! Follow the ! on your map." % [expert.npc_name, where])
+				_say(npc.npc_name, "I do not know how to fix it. Ask %s at %s! Follow the ! on your %s." % [expert.npc_name, where, _map_word()])
 				q["stage"] = 1
 		elif q["stage"] == 1 and f["expert"] == npc.npc_id:
 			said = true
-			if learned.has(fault):
-				_say(npc.npc_name, "And you already know this one. " + str(f["again"]))
-			else:
-				_say(npc.npc_name, str(f["how"]))
-			learned[fault] = true
-			var also: String = str(f["also"])
-			if also != "" and not learned.has(also):
-				var f2: Dictionary = FAULTS[also]
-				_say(npc.npc_name, "One more thing. " + str(f2["how"]))
-				learned[also] = true
-			_say(npc.npc_name, "I marked it on your map. Good luck!")
+			_teach(npc, fault)
 			q["stage"] = 2
+	if _talk_errands(npc):
+		said = true
+	for d in decisions:
+		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
+			said = true
+			_open_decision(d)
+			break
 	if not said:
 		if npc.role == "miner" and npc.ore > 0:
 			_collect_ore(npc)
@@ -876,6 +1485,22 @@ func _talk(npc) -> void:
 			for line in _npc_lines(npc):
 				_say(npc.npc_name, line)
 	_refresh_quests()
+
+
+func _teach(npc, fault: String) -> void:
+	# a colonist explains how to fix one kind of problem (only needed the first time)
+	var f: Dictionary = FAULTS[fault]
+	if learned.has(fault):
+		_say(npc.npc_name, "You already know this one. " + str(f["again"]))
+	else:
+		_say(npc.npc_name, str(f["how"]))
+	learned[fault] = true
+	var also: String = str(f["also"])
+	if also != "" and not learned.has(also):
+		var f2: Dictionary = FAULTS[also]
+		_say(npc.npc_name, "One more thing. " + str(f2["how"]))
+		learned[also] = true
+	_say(npc.npc_name, _map_line(fault) + " Good luck!")
 
 
 func _collect_ore(npc) -> void:
@@ -891,25 +1516,383 @@ func _collect_ore(npc) -> void:
 		hud.toast("+%d spare parts from %s" % [n, npc.npc_name])
 
 
+# ---------------------------------------------------------------------
+#  Side quests for the quiet sols
+#  stage 0: the colonist who asks has a "!"            (talk to them)
+#  stage 1: find the item on the map, or talk to the colonist you deliver to
+#  stage 2: bring the item back                        (only "find" quests)
+# ---------------------------------------------------------------------
+
+func _start_errand(id: String) -> void:
+	if not SIDE_QUESTS.has(id):
+		return
+	for e in errands:
+		if e["id"] == id:
+			return
+	var q: Dictionary = SIDE_QUESTS[id]
+	errands.append({"id": id, "stage": 0, "item": null})
+	_refresh_quests()
+	var who = npc_by_id[q["giver"]]
+	var where: String = str(PLACES.get(who.npc_id, "the colony"))
+	hud.show_banner("A SMALL FAVOUR", "%s at %s needs a little help. It is not urgent, but there is a reward. Follow the ! on your %s." % [who.npc_name, where, _map_word()], 10.0)
+
+
+func _errand_npc(e: Dictionary) -> String:
+	# the colonist who has the "!" for this side quest right now ("" if nobody)
+	var q: Dictionary = SIDE_QUESTS[e["id"]]
+	if e["stage"] == 0 or e["stage"] == 2:
+		return str(q["giver"])
+	if e["stage"] == 1 and q["type"] == "deliver":
+		return str(q["to"])
+	return ""
+
+
+func _talk_errands(npc) -> bool:
+	var said := false
+	var finished := []
+	for e in errands:
+		if _errand_npc(e) != npc.npc_id:
+			continue
+		var q: Dictionary = SIDE_QUESTS[e["id"]]
+		said = true
+		if e["stage"] == 0:
+			var ask: String = str(q["ask"])
+			if antenna.broken:
+				# the map has no picture while the antenna is broken, so do not point at it
+				ask = ask.replace("I marked it on your map.", "The map has no picture right now, but your radar shows it as a purple mark.")
+			_say(npc.npc_name, ask)
+			e["stage"] = 1
+			if q["type"] == "find":
+				e["item"] = _spawn_item(str(e["id"]), q)
+		else:
+			_say(npc.npc_name, str(q["thanks"]))
+			finished.append(e)
+	for e in finished:
+		_reward(SIDE_QUESTS[e["id"]])
+		errands.erase(e)
+	return said
+
+
+func _reward(q: Dictionary) -> void:
+	stats["side"] += 1
+	var got := PackedStringArray()
+	if int(q["parts"]) > 0:
+		parts += int(q["parts"])
+		got.append("+%d spare part" % int(q["parts"]))
+	if int(q["energy"]) > 0:
+		energy = minf(100.0, energy + float(q["energy"]))
+		got.append("+%d energy" % int(q["energy"]))
+	hud.toast("Favour done!  " + "  ".join(got))
+
+
+func _spawn_item(id: String, q: Dictionary):
+	var it = ErrandItem.new()
+	var spots: Array = q["spots"]
+	it.position = spots[rng.randi() % spots.size()]
+	it.errand_id = id
+	it.title = str(q["item_name"])
+	world.add_child(it)
+	it.build(str(q["item"]))
+	errand_items.append(it)
+	return it
+
+
+func _pick_up(it) -> void:
+	for e in errands:
+		if e["item"] == it and e["stage"] == 1:
+			e["stage"] = 2
+			e["item"] = null
+			hud.toast(str(SIDE_QUESTS[e["id"]]["got"]))
+	errand_items.erase(it)
+	it.queue_free()
+	_refresh_quests()
+
+
+# ---------------------------------------------------------------------
+#  Decisions: a colonist asks, and both answers cost something
+# ---------------------------------------------------------------------
+
+func _start_decision(id: String) -> void:
+	if not DILEMMAS.has(id):
+		return
+	for d in decisions:
+		if str(d["id"]) == id:
+			return
+	decisions.append({"id": id})
+	_refresh_quests()
+	var who = npc_by_id[DILEMMAS[id]["npc"]]
+	var where: String = str(PLACES.get(who.npc_id, "the colony"))
+	hud.show_banner("A DECISION FOR YOU", "%s at %s needs you to decide something before sunset. Follow the ! on your %s." % [who.npc_name, where, _map_word()], 10.0)
+
+
+func _drop_decision(id: String) -> void:
+	for d in decisions.duplicate():
+		if str(d["id"]) == id:
+			decisions.erase(d)
+	_refresh_quests()
+
+
+func _expire_decisions() -> void:
+	# at sunset the colonists stop waiting for an answer
+	if decisions.is_empty():
+		return
+	decisions.clear()
+	_refresh_quests()
+	hud.toast("Sunset: the decision you did not make has passed. Nothing changes.")
+
+
+func _open_decision(d: Dictionary) -> void:
+	var data: Dictionary = DILEMMAS[d["id"]]
+	var who = npc_by_id[data["npc"]]
+	_ask(str(who.npc_name), str(data["title"]), str(data["text"]), [_option(data["a"]), _option(data["b"])], _decided.bind(d))
+
+
+func _option(o: Dictionary) -> Dictionary:
+	# one answer of a decision, ready for the card: its name and what it costs or gives
+	var lines := []
+	var ok := true
+	var now: Dictionary = o.get("now", {})
+	for key in now:
+		var amount: int = int(now[key])
+		lines.append(_effect_line(str(key), amount, "now"))
+		if amount < 0 and not _can_pay(str(key), -amount):
+			ok = false
+	var later: Dictionary = o.get("later", {})
+	for key in later:
+		lines.append(_effect_line(str(key), int(later[key]), "tomorrow"))
+	if o.has("lines"):
+		for line in o["lines"]:
+			lines.append(str(line))
+	if lines.is_empty():
+		lines.append("Nothing changes.")
+	if not ok:
+		lines.append("- You do not have enough for this!")
+	return {"label": str(o["label"]), "lines": lines, "enabled": ok}
+
+
+func _effect_line(key: String, amount: int, when: String) -> String:
+	if key == "cap":
+		return "- Tomorrow the battery only fills up to %d" % amount
+	var mark: String = "+"
+	if amount < 0:
+		mark = "-"
+	var n: int = absi(amount)
+	var what: String = key.to_upper()
+	if key == "parts":
+		what = "SPARE PARTS"
+		if n == 1:
+			what = "SPARE PART"
+	elif key == "health":
+		n = int(round(float(n) / 20.0))
+		what = "HEARTS"
+		if n == 1:
+			what = "HEART"
+	if when == "":
+		return "%s%d %s" % [mark, n, what]
+	return "%s%d %s %s" % [mark, n, what, when]
+
+
+func _effects_text(effects: Dictionary) -> String:
+	var out := PackedStringArray()
+	for key in effects:
+		if str(key) != "cap":
+			out.append(_effect_line(str(key), int(effects[key]), ""))
+	return ", ".join(out)
+
+
+func _can_pay(key: String, amount: int) -> bool:
+	if key == "energy":
+		return energy >= float(amount) + 3.0
+	if key == "oxygen":
+		return oxygen >= float(amount) + 5.0
+	if key == "food":
+		return food >= float(amount)
+	if key == "parts":
+		return parts >= amount
+	if key == "health":
+		return health > float(amount)
+	return true
+
+
+func _apply_effects(effects: Dictionary) -> void:
+	for key in effects:
+		var v: float = float(effects[key])
+		var k: String = str(key)
+		if k == "energy":
+			energy = clampf(energy + v, 0.0, energy_cap)
+		elif k == "oxygen":
+			oxygen = clampf(oxygen + v, 0.0, 100.0)
+		elif k == "food":
+			food = clampf(food + v, 0.0, 100.0)
+		elif k == "health":
+			health = clampf(health + v, 1.0, 100.0)
+		elif k == "parts":
+			parts = maxi(0, parts + int(v))
+		elif k == "cap":
+			energy_cap = v
+			energy = minf(energy, energy_cap)
+
+
+func _decided(i: int, d: Dictionary) -> void:
+	var data: Dictionary = DILEMMAS[d["id"]]
+	var o: Dictionary = data["a"]
+	if i == 1:
+		o = data["b"]
+	decisions.erase(d)
+	var now: Dictionary = o.get("now", {})
+	_apply_effects(now)
+	var later: Dictionary = o.get("later", {})
+	if not later.is_empty():
+		pending.append({"sol": sol + 1, "effects": later, "text": str(o.get("later_text", ""))})
+	if str(o.get("flag", "")) == "fold":
+		storm_fold = true
+	stats["decisions"] += 1
+	var who = npc_by_id[data["npc"]]
+	if o.has("say"):
+		_say(str(who.npc_name), str(o["say"]))
+	var got: String = _effects_text(now)
+	if got != "":
+		hud.toast(got)
+	_refresh_quests()
+
+
+# ---------------------------------------------------------------------
+#  The decision card (two answers side by side)
+# ---------------------------------------------------------------------
+
+func _ask(speaker: String, title: String, text: String, options: Array, done: Callable) -> void:
+	# options: two dictionaries {"label", "lines", "enabled"}; done is called with 0 or 1
+	if dialog_open:
+		# wait until the colonist has finished talking
+		after_dialog.append(_ask.bind(speaker, title, text, options, done))
+		return
+	choice_open = true
+	choice_done = done
+	choice_time = 0.0
+	choice_enabled = [bool(options[0].get("enabled", true)), bool(options[1].get("enabled", true))]
+	choice_sel = 0
+	if not choice_enabled[0]:
+		choice_sel = 1
+	Game.paused = true
+	hold_target = null
+	hud.show_choice(speaker, title, text, options, choice_sel)
+
+
+func _choose(i: int) -> void:
+	if not choice_open or i < 0 or i > 1:
+		return
+	if not choice_enabled[i]:
+		return
+	choice_open = false
+	hud.hide_choice()
+	Game.paused = dialog_open
+	var done: Callable = choice_done
+	choice_done = Callable()
+	if done.is_valid():
+		done.call(i)
+
+
+# ---------------------------------------------------------------------
+#  The machine tour at the start of the game: the camera moves, the player waits
+# ---------------------------------------------------------------------
+
+func _start_tour() -> void:
+	touring = true
+	tour_i = -1
+	Game.paused = true
+	cam.position_smoothing_enabled = false
+	_tour_next()
+
+
+func _tour_next() -> void:
+	tour_i += 1
+	if tour_i >= TOUR.size():
+		_end_tour()
+		return
+	var stop: Dictionary = TOUR[tour_i]
+	tour_from = cam.position
+	tour_to = player.position + Vector2(0, -40)
+	if stop.has("pos"):
+		var p: Vector2 = stop["pos"]
+		tour_to = p + Vector2(0, 110)      # the machine sits in the upper half, above the text box
+	tour_t = 0.0
+	var text: String = str(stop["text"]).replace("{sols}", str(Game.TOTAL_SOLS))
+	hud.show_tour(str(stop["title"]), text, tour_i + 1, TOUR.size())
+
+
+func _update_tour(delta: float) -> void:
+	if tour_i < 0 or tour_i >= TOUR.size():
+		return
+	var stop: Dictionary = TOUR[tour_i]
+	var secs: float = clampf(tour_from.distance_to(tour_to) / 2400.0, 0.45, 1.7)
+	tour_t = minf(1.0, tour_t + delta / secs)
+	cam.position = tour_from.lerp(tour_to, smoothstep(0.0, 1.0, tour_t))
+	var arrived: bool = tour_t >= 1.0
+	if stop.has("pos"):
+		var world_pos: Vector2 = stop["pos"]
+		var on_screen: Vector2 = get_viewport().get_canvas_transform() * world_pos
+		hud.set_tour_target(on_screen, arrived)
+	elif stop.has("screen"):
+		var spot: Vector2 = stop["screen"]
+		hud.set_tour_target(spot, arrived)
+	else:
+		hud.set_tour_target(Vector2.ZERO, false)
+
+
+func _end_tour() -> void:
+	if not touring:
+		return
+	touring = false
+	hud.hide_tour()
+	cam.position = player.position + Vector2(0, -40)
+	cam.position_smoothing_enabled = true
+	cam.reset_smoothing()
+	Game.paused = false
+	_morning()
+
+
+func _snap_camera() -> void:
+	# after coming out on the other side of the map: jump the camera there with a quick blink
+	cam.position = player.position + Vector2(0, -40)
+	cam.reset_smoothing()
+	hud.fade_in()
+
+
+func _dev_skip() -> void:
+	# testing shortcut (F9): jump to just before the next part of the day
+	if cinematic or touring or dialog_open or choice_open:
+		return
+	var marks := [Game.DAY_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS + Game.NIGHT_SECONDS, Game.SOL_SECONDS]
+	for m in marks:
+		var at: float = float(m) - 2.0
+		if sol_time < at:
+			elapsed += at - sol_time
+			sol_time = at
+			hud.toast("Skipped ahead (F9)")
+			return
+
+
 func _npc_lines(npc) -> Array:
 	var lines := []
 	var role: String = npc.role
 	if role == "engineer":
 		lines.append("I fix things and I can teach you how. When somebody has a problem, a ! shows over their head and on your map.")
-		lines.append("Tip: you can build more solar panels and wind turbines on the empty plots in the solar field. Panels are strong by day. Turbines are weak, but they also work at night and in dust storms.")
+		lines.append("Every repair is a choice. A full repair uses 1 spare part and lasts. A quick patch is free, but it falls off the next morning.")
 		lines.append("Out of spare parts? Collect ore from the miners, or press E at my workshop to build one. But the workshop uses a lot of energy!")
 	elif role == "doctor":
 		if flare_left > 0.0 and not shield.works():
-			lines.append("Radiation storm! Please turn the shield ON. Radiation can make everyone sick, even though we cannot see or feel it.")
-		elif _is_night() and not heater.works():
+			lines.append("Radiation storm! Please switch the shield ON. Radiation can make everyone sick, even though we cannot see or feel it.")
+		elif _cold_now() and not heater.works():
 			lines.append("It is %d C outside tonight! Without the heater we lose health. Please switch it on." % int(today["min"]))
+		elif food < 25.0:
+			lines.append("People are getting hungry. With no food at all, everyone loses health. Are the greenhouse lights on?")
 		else:
 			lines.append("Earth has thick air and a magnetic field that block most space radiation. Mars does not, so we need a shield when the Sun is stormy.")
-		lines.append("If your health is low, stay safe for a while: keep warm and shielded, and it slowly comes back.")
+		lines.append("The hearts show the colony's health. Stay warm, shielded and fed, and they slowly come back.")
 	elif role == "scientist":
 		lines.append("The air on Mars is mostly carbon dioxide, which we cannot breathe. Our oxygen machine turns it into oxygen, like NASA's MOXIE experiment on the Perseverance rover.")
-		lines.append("Making oxygen needs a lot of electricity. If the battery is low at night, you can switch the machine off for a while, but watch the oxygen bar!")
-		lines.append("Did you know? A sol, a day on Mars, is about 40 minutes longer than a day on Earth.")
+		lines.append("Making oxygen needs a lot of electricity: 2 bolts. If the battery is low at night, you can switch the machine off for a while, but watch the oxygen bar!")
+		lines.append("Did you know? A sol, a day on Mars, is about 40 minutes longer than a day on Earth. And sunsets on Mars look blue!")
 	elif role == "journalist":
 		lines.append("This is Ada with Mars News. Sol %d of %d. Today's high is %d C and tonight's low is %d C." % [sol + 1, Game.TOTAL_SOLS, int(today["max"]), int(today["min"])])
 		if storm_left > 0.0:
@@ -919,11 +1902,12 @@ func _npc_lines(npc) -> Array:
 		else:
 			lines.append("I will warn everyone when a storm is on its way. Watch for my news flashes at the top of the screen.")
 	elif role == "technician":
-		lines.append("I look after the solar field. %d panels and %d wind turbines are making energy for us." % [panels.size() - _count_broken_panels(), turbines.size()])
-		lines.append("See the empty plots with a + sign? Stand on one and hold E to build. A solar panel costs %d spare parts and a wind turbine costs %d." % [PANEL_COST, TURBINE_COST])
+		lines.append("I look after the solar field. %d panels and %d wind turbines are making energy for us. Each one makes 1 bolt of power." % [panels.size() - _count_broken_panels(), turbines.size()])
+		lines.append("See the empty plots with a + sign? Stand on one and hold E to build. A solar panel costs %d spare parts and a wind turbine costs %d. Turbines also work at night." % [PANEL_COST, TURBINE_COST])
 	elif role == "farmer":
-		lines.append("Plants are amazing: they take in the air we breathe out and give back oxygen. My greenhouse adds a little oxygen all the time.")
-		lines.append("On Mars the soil has no food for plants, so we feed them ourselves, and the grow lights give them light when the Sun is weak.")
+		lines.append("Everything we eat grows in my greenhouse. The plants need light, so the grow lights must be ON. They use 2 bolts of power.")
+		lines.append("NASA grows lettuce in space the same way: under LED lights, in a little garden on the International Space Station.")
+		lines.append("Watch the FOOD bar. If it runs out, everyone goes hungry and loses health.")
 	elif role == "miner":
 		lines.append("Still digging! Come back in a little while and I will have ore for you.")
 		lines.append("Ore is rock with metal inside. We turn it into spare parts for repairs and for building.")
@@ -1048,6 +2032,10 @@ func _drive(delta: float) -> void:
 				energy = maxf(0.0, energy - ROVER_USE * delta)
 				stats["driven"] += delta
 	player.position = driving.position
+	if driving.wrapped:
+		# the rover left one end of the road and came back in at the other end
+		driving.wrapped = false
+		_snap_camera()
 
 
 # =====================================================================
@@ -1055,7 +2043,34 @@ func _drive(delta: float) -> void:
 # =====================================================================
 
 func _unhandled_input(event: InputEvent) -> void:
-	if game_over or not event.is_action_pressed("interact"):
+	if game_over:
+		return
+	if Game.DEV_KEYS and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
+		_dev_skip()
+		return
+	if touring:
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+			_end_tour()
+		elif event.is_action_pressed("interact"):
+			if tour_t < 1.0:
+				tour_t = 1.0
+			else:
+				_tour_next()
+		return
+	if choice_open:
+		if event.is_action_pressed("move_left") or event.is_action_pressed("move_right"):
+			var other: int = 1 - choice_sel
+			if choice_enabled[other]:
+				choice_sel = other
+				hud.set_choice_selected(choice_sel)
+		elif event.is_action_pressed("interact") and choice_time > 0.6:
+			_choose(choice_sel)
+		return
+	if not event.is_action_pressed("interact"):
+		return
+	if cinematic:
+		if dialog_open:
+			_next_dialog()
 		return
 	if dialog_open:
 		_next_dialog()
@@ -1071,7 +2086,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_do_press(t)
 	elif act["mode"] == "hold":
 		hold_target = t
-		hold_time = 0.0
+		hold_time = _saved_hold_time(t, act)
 
 
 func _rect_dist(box: Rect2, p: Vector2) -> float:
@@ -1098,6 +2113,13 @@ func _find_target():
 		if dn < best_d:
 			best = n
 			best_d = dn
+	for it in errand_items:
+		if not is_instance_valid(it):
+			continue
+		var di: float = p.distance_to(it.position) - 20.0
+		if di < best_d:
+			best = it
+			best_d = di
 	for v in rovers:
 		if v.mode != "parked":
 			continue
@@ -1127,6 +2149,8 @@ func _action_for(t) -> Dictionary:
 		if t.role == "miner" and t.ore > 0 and not _npc_has_quest(t):
 			return _act("Press E: take %d ore from %s" % [t.ore, t.npc_name], "press", 0.0)
 		return _act("Press E: talk to %s" % t.npc_name, "press", 0.0)
+	if what == "item":
+		return _act("Press E: pick up the %s" % t.title, "press", 0.0)
 	if what == "vehicle":
 		return _act("Press E: drive the rover (it stays on the roads and uses a little energy)", "press", 0.0)
 
@@ -1143,55 +2167,111 @@ func _action_for(t) -> Dictionary:
 	var fault: String = _fault_of(t)
 	if fault != "":
 		if not _knows_fix(fault):
-			return _act("Something is wrong here. Follow the ! on your map to find out what to do.", "none", 0.0)
+			return _act("Something is wrong here. Follow the ! on your %s to find out what to do." % _map_word(), "none", 0.0)
 		if fault == "dust":
 			return _act("Hold E: wipe the dust off this solar panel", "hold", 1.5)
-		if parts <= 0:
-			return _act("This needs 1 spare part, but you have none! Collect ore from the miners or use the workshop.", "none", 0.0)
-		if fault == "leak":
-			return _act("Hold E: seal the hole in %s (uses 1 spare part)" % t.title, "hold", 2.4)
-		return _act("Hold E: repair the %s (uses 1 spare part)" % str(t.title).to_lower(), "hold", 2.4)
+		var thing: String = str(t.title).to_lower()
+		var method: String = str(fix_method.get(t.get_instance_id(), ""))
+		if method == "part" and parts <= 0:
+			method = ""                # the spare part was used somewhere else: choose again
+		if method == "part":
+			return _act("Hold E: full repair of the %s (uses 1 spare part)" % thing, "hold", REPAIR_SECONDS)
+		if method == "patch":
+			return _act("Hold E: quick patch on the %s (free, but it falls off tomorrow)" % thing, "hold", PATCH_SECONDS)
+		return _act("Press E: fix the %s (you choose how)" % thing, "press", 0.0)
 
 	if kind == "workshop":
 		if energy >= WORKSHOP_COST + 5.0:
 			return _act("Press E: build 1 spare part (costs %d energy)" % int(WORKSHOP_COST), "press", 0.0)
 		return _act("Workshop: not enough energy to build a spare part", "none", 0.0)
 	if t.switchable:
+		var info: Dictionary = SWITCHES.get(kind, {})
+		var label: String = str(info.get("name", str(t.title).to_lower()))
+		var bolts: int = int(info.get("bolts", 2))
 		if t.is_on:
-			return _act("Press E: switch the %s OFF (saves energy)" % str(t.title).to_lower(), "press", 0.0)
+			return _act("Press E: switch the %s OFF  (saves %d bolts, but %s)" % [label, bolts, str(info.get("off", "it stops working"))], "press", 0.0)
 		if energy < 3.0:
 			return _act("No power! The battery is empty.", "none", 0.0)
-		return _act("Press E: switch the %s ON (uses energy)" % str(t.title).to_lower(), "press", 0.0)
+		return _act("Press E: switch the %s ON  (uses %d bolts: %s)" % [label, bolts, str(info.get("on", "it starts working"))], "press", 0.0)
+	if t.patched:
+		return _act("%s: patched. The patch falls off tomorrow morning." % str(t.title), "none", 0.0)
 	if kind == "panel":
-		return _act("Solar panel: turns sunlight into energy", "none", 0.0)
+		if t.folded:
+			return _act("Solar panel: folded away, safe from the storm", "none", 0.0)
+		return _act("Solar panel: makes 1 bolt of power in sunlight", "none", 0.0)
 	if kind == "turbine":
-		return _act("Wind turbine: makes a little energy day and night, even in a dust storm", "none", 0.0)
+		return _act("Wind turbine: makes 1 bolt of power day and night, and more in a dust storm", "none", 0.0)
 	if kind == "battery":
 		return _act("Battery: stores energy for the night", "none", 0.0)
 	if kind == "relay":
-		return _act("Power line: carries energy from the solar field to the colony", "none", 0.0)
+		return _act("Power line: carries energy from the solar field to the town", "none", 0.0)
 	if kind == "antenna":
-		return _act("Antenna: sends the news and the map signal", "none", 0.0)
+		return _act("Antenna: sends the news and the map picture", "none", 0.0)
 	if kind == "drill":
 		return _act("Mine drill: digs up ore for spare parts", "none", 0.0)
-	if kind == "farm":
-		return _act("Greenhouse: the plants make a little extra oxygen", "none", 0.0)
 	return _act("", "none", 0.0)
 
 
 func _do_press(t) -> void:
 	if t.what == "npc":
 		_talk(t)
+	elif t.what == "item":
+		_pick_up(t)
 	elif t.what == "vehicle":
 		_enter_rover(t)
+	elif _fault_of(t) != "":
+		_ask_fix(t)
 	elif t.kind == "workshop":
 		energy -= WORKSHOP_COST
 		parts += 1
 		stats["parts_built"] += 1
 		hud.toast("+1 spare part (it cost %d energy)" % int(WORKSHOP_COST))
 	elif t.switchable:
-		t.is_on = not t.is_on
-		t.refresh()
+		_switch(t)
+
+
+func _switch(t) -> void:
+	# switch a machine on or off, and say what that does to the power
+	t.is_on = not t.is_on
+	t.refresh()
+	restart_list.erase(t)             # the player decided, so no automatic restart
+	var info: Dictionary = SWITCHES.get(t.kind, {})
+	if info.is_empty():
+		return
+	var state: String = "ON"
+	if not t.is_on:
+		state = "OFF"
+	hud.toast("%s %s.  Power now: making %d bolts, using %d." % [str(info["name"]).capitalize(), state, int(round(_power_made())), int(round(_power_used()))])
+
+
+func _ask_fix(t) -> void:
+	# every repair is a choice: spend a spare part, or patch it for free until tomorrow
+	var fault: String = _fault_of(t)
+	if fault == "" or fault == "dust":
+		return
+	var thing: String = str(t.title).to_upper()
+	var title: String = "THE %s IS BROKEN" % thing
+	if fault == "leak":
+		title = "AIR IS LEAKING FROM %s" % thing
+	var can_part: bool = parts > 0
+	var part_lines := ["- Uses 1 spare part (you have %d)" % parts, "+ Fixed for good"]
+	if not can_part:
+		part_lines = ["- You have no spare parts!", "Collect ore from the miners, or build a part in the workshop."]
+	var options := [
+		{"label": "FULL REPAIR", "lines": part_lines, "enabled": can_part},
+		{"label": "QUICK PATCH", "lines": ["+ Costs no spare part", "- It falls off tomorrow morning, and this breaks again"], "enabled": true},
+	]
+	_ask("How do you want to fix it?", title, "Spare parts are hard to get, and you also need them to build new solar panels and wind turbines.", options, _fix_chosen.bind(t))
+
+
+func _fix_chosen(i: int, t) -> void:
+	if not is_instance_valid(t):
+		return
+	if i == 0:
+		fix_method[t.get_instance_id()] = "part"
+	else:
+		fix_method[t.get_instance_id()] = "patch"
+	hud.toast("Now hold E to do the work.")
 
 
 func _update_hold(delta: float) -> void:
@@ -1205,10 +2285,21 @@ func _update_hold(delta: float) -> void:
 		hold_target = null
 		return
 	hold_time += delta
+	# save every frame, so the progress survives however the hold gets interrupted
+	hold_saved[hold_target.get_instance_id()] = {"text": act["text"], "time": hold_time}
 	if hold_time >= float(act["secs"]):
 		var t = hold_target
 		hold_target = null
+		hold_saved.erase(t.get_instance_id())
 		_finish_hold(t)
+
+
+func _saved_hold_time(t, act: Dictionary) -> float:
+	# resume a job the player started earlier; only if it is still the same job
+	var saved = hold_saved.get(t.get_instance_id())
+	if saved == null or saved["text"] != act["text"]:
+		return 0.0
+	return minf(float(saved["time"]), float(act["secs"]))
 
 
 func _finish_hold(t) -> void:
@@ -1221,7 +2312,7 @@ func _finish_hold(t) -> void:
 		stats["built"] += 1
 		t.convert_to("panel", "solar_panel", "Solar panel", Rect2(t.position.x - 75.0, t.position.y - 66.0, 150.0, 60.0))
 		panels.append(t)
-		hud.toast("You built a solar panel: more energy by day!")
+		hud.toast("You built a solar panel: 1 more bolt of power by day!")
 		return
 	if kind == "plot_wind":
 		if parts < TURBINE_COST:
@@ -1233,7 +2324,7 @@ func _finish_hold(t) -> void:
 		if storm_left > 0.0:
 			t.anim_speed = 16.0
 		turbines.append(t)
-		hud.toast("You built a wind turbine: a little energy day and night!")
+		hud.toast("You built a wind turbine: 1 more bolt of power, day and night!")
 		return
 
 	var fault: String = _fault_of(t)
@@ -1243,11 +2334,23 @@ func _finish_hold(t) -> void:
 		t.dusty = false
 		stats["cleaned"] += 1
 	else:
-		if parts <= 0:
-			return
-		parts -= 1
-		stats["parts_used"] += 1
-		stats["repairs"] += 1
+		var id: int = t.get_instance_id()
+		var method: String = str(fix_method.get(id, "part"))
+		fix_method.erase(id)
+		if method == "patch":
+			t.patched = true
+			t.patch_fault = fault
+			stats["patches"] += 1
+			hud.toast("Patched! It works again, but only until tomorrow morning.")
+		else:
+			if parts <= 0:
+				return
+			parts -= 1
+			stats["parts_used"] += 1
+			stats["repairs"] += 1
+			t.patched = false
+			t.patch_fault = ""
+			hud.toast("Repaired for good!")
 		if fault == "leak":
 			t.leaking = false
 		else:
@@ -1269,8 +2372,14 @@ func _say(speaker: String, text: String) -> void:
 func _next_dialog() -> void:
 	if dialog_queue.is_empty():
 		dialog_open = false
-		Game.paused = false
+		Game.paused = choice_open or touring
 		hud.hide_dialog()
+		if not after_dialog.is_empty():
+			# things that were waiting for the talk to end (a decision card, the tour...)
+			var todo: Array = after_dialog.duplicate()
+			after_dialog.clear()
+			for job in todo:
+				job.call()
 		return
 	var d: Array = dialog_queue.pop_front()
 	dialog_open = true
@@ -1284,8 +2393,7 @@ func _next_dialog() -> void:
 # =====================================================================
 
 func _update_look(delta: float) -> void:
-	var night_color := Color(0.42, 0.46, 0.78)
-	sky.color = night_color.lerp(Color(1, 1, 1), _sun())
+	sky.color = _sky_color()
 	var target := 0.0
 	if storm_left > 0.0:
 		target = 0.3
@@ -1299,13 +2407,15 @@ func _update_look(delta: float) -> void:
 func _tasks() -> Array:
 	var t := []
 	if flare_left > 0.0 and not shield.works():
-		t.append("RADIATION! Turn the shield ON")
+		t.append("RADIATION! Switch the shield ON")
 	if storm_left > 0.0:
 		t.append("Dust storm: dodge the debris")
-	if _is_night() and not heater.works():
-		t.append("Night: turn the heater ON")
+	if _cold_now() and not heater.works():
+		t.append("Freezing night: switch the heater ON")
 	if not oxy_machine.broken and not oxy_machine.is_on and oxygen < 40.0:
-		t.append("Oxygen is low: turn the oxygen machine ON")
+		t.append("Oxygen is low: switch the oxygen machine ON")
+	if not greenhouse.broken and not greenhouse.is_on and food < 40.0:
+		t.append("Food is low: switch the greenhouse lights ON")
 	for q in quests:
 		var f: Dictionary = FAULTS[q["kind"]]
 		if q["stage"] == 0:
@@ -1318,34 +2428,41 @@ func _tasks() -> Array:
 				t.append("%s (%d left)" % [str(f["task"]), n])
 			else:
 				t.append(str(f["task"]))
+	for d in decisions:
+		t.append("Decide: talk to %s (!)" % npc_by_id[DILEMMAS[d["id"]]["npc"]].npc_name)
+	for e in errands:
+		var sq: Dictionary = SIDE_QUESTS[e["id"]]
+		if e["stage"] == 0:
+			t.append("Favour: talk to %s (!)" % npc_by_id[sq["giver"]].npc_name)
+		elif e["stage"] == 1:
+			t.append("Favour: " + str(sq["task"]))
+		else:
+			t.append("Favour: " + str(sq["back"]))
 	if t.is_empty():
 		if _is_night():
-			t.append("All systems OK. Hold on until sunrise!")
+			t.append("All good! Hold on until sunrise.")
 		else:
-			t.append("All systems OK. Fill the battery before night, or build something.")
+			t.append("All good! Fill the battery before night, or build something.")
 	return t
 
 
 func _state(m) -> String:
 	if m.broken:
-		return "BROKEN"
+		return "broken"
 	if m.is_on:
-		return "ON"
-	return "OFF"
+		return "on"
+	return "off"
 
 
 func _update_hud() -> void:
-	hud.set_bars(energy, oxygen, health)
+	hud.set_bars(energy, oxygen, food, health, trend, energy_cap)
 	hud.set_parts(parts)
-	hud.set_power(net_power)
-	hud.set_switches("Oxygen: %s    Heater: %s    Shield: %s" % [_state(oxy_machine), _state(heater), _state(shield)])
-
-	var left: float = maxf(0.0, Game.SOL_SECONDS * float(Game.TOTAL_SOLS) - elapsed)
-	var secs: int = int(left)
-	var part_of_day: String = "Day"
-	if _is_night():
-		part_of_day = "Night"
-	hud.set_clock("Sol %d of %d  -  %s        Time left  %02d:%02d" % [sol + 1, Game.TOTAL_SOLS, part_of_day, secs / 60, secs % 60])
+	hud.set_machines([["AIR", _state(oxy_machine)], ["FOOD", _state(greenhouse)], ["HEAT", _state(heater)], ["SHIELD", _state(shield)]])
+	var total: float = Game.SOL_SECONDS
+	var m0: float = Game.DAY_SECONDS / total
+	var m1: float = (Game.DAY_SECONDS + Game.DUSK_SECONDS) / total
+	var m2: float = (Game.DAY_SECONDS + Game.DUSK_SECONDS + Game.NIGHT_SECONDS) / total
+	hud.set_day(sol, Game.TOTAL_SOLS, sol_time / total, [m0, m1, m2], _sun())
 	hud.set_tasks(_tasks())
 
 	# marks on the minimap
@@ -1358,12 +2475,24 @@ func _update_hud() -> void:
 			for m in q["targets"]:
 				if is_instance_valid(m):
 					marks.append([m.position, "fix"])
+	# machines that must be switched ON right now are problems too
+	if flare_left > 0.0 and not shield.works():
+		marks.append([shield.position, "fix"])
+	if _cold_now() and not heater.works():
+		marks.append([heater.position, "fix"])
+	if not oxy_machine.broken and not oxy_machine.is_on and oxygen < 40.0:
+		marks.append([oxy_machine.position, "fix"])
+	if not greenhouse.broken and not greenhouse.is_on and food < 40.0:
+		marks.append([greenhouse.position, "fix"])
+	for it in errand_items:
+		if is_instance_valid(it):
+			marks.append([it.position, "item"])
 	for v in rovers:
 		if v != driving:
 			marks.append([v.position, "rover"])
 	hud.set_minimap(player.position, marks, antenna.broken)
 
-	if dialog_open:
+	if dialog_open or choice_open or touring:
 		hud.set_prompt("")
 		hud.set_hold(-1.0)
 		return
@@ -1372,14 +2501,221 @@ func _update_hud() -> void:
 		hud.set_hold(-1.0)
 		return
 	var t = _find_target()
+	var saved_progress: float = _saved_progress(t)
 	if t == null:
 		hud.set_prompt("")
+	elif saved_progress > 0.0 and hold_target == null:
+		# a job the player started earlier: show that it will continue, not restart
+		hud.set_prompt("%s  (%d%% done)" % [str(_action_for(t)["text"]), int(saved_progress * 100.0)])
 	else:
 		hud.set_prompt(str(_action_for(t)["text"]))
 	if hold_target != null and is_instance_valid(hold_target):
 		hud.set_hold(hold_time / maxf(0.1, float(_action_for(hold_target)["secs"])))
+	elif saved_progress > 0.0:
+		hud.set_hold(saved_progress)
 	else:
 		hud.set_hold(-1.0)
+
+
+func _saved_progress(t) -> float:
+	# how much of the hold job on t is already done (0 to 1), or -1 if none
+	if t == null or not is_instance_valid(t):
+		return -1.0
+	var act: Dictionary = _action_for(t)
+	if act["mode"] != "hold":
+		return -1.0
+	var done: float = _saved_hold_time(t, act)
+	if done <= 0.0:
+		return -1.0
+	return done / maxf(0.1, float(act["secs"]))
+
+
+# =====================================================================
+#  THE HAPPY ENDING: the President's rocket lands with the new settlers
+# =====================================================================
+
+const ARRIVAL_PEOPLE := [
+	# who, sprite sheet, where they walk to, when they step out (seconds into the scene)
+	["president", "town2", Vector2(760, 905), 11.4],
+	["settler", "town1", Vector2(620, 870), 12.4],
+	["settler", "town4", Vector2(900, 870), 13.2],
+	["settler", "town5", Vector2(560, 950), 14.0],
+	["settler", "town6", Vector2(960, 950), 14.8],
+	["settler", "town3", Vector2(660, 990), 15.6],
+]
+
+
+func _start_arrival() -> void:
+	cinematic = true
+	cine_t = 0.0
+	cine_stage = "pan"
+	# the danger is over
+	storm_left = 0.0
+	flare_left = 0.0
+	for piece in flying:
+		piece["node"].queue_free()
+	flying.clear()
+	hold_target = null
+	dialog_queue.clear()
+	after_dialog.clear()
+	dialog_open = false
+	hud.hide_dialog()
+	choice_open = false
+	hud.hide_choice()
+	decisions.clear()
+	if driving != null:
+		_exit_rover()
+	Game.paused = false
+	Game.shelter = false              # everyone comes outside to see the rocket
+	# the player waits at the edge of the rocket pad, looking up at the sky
+	player.position = Vector2(760, 1010)
+	player.in_vehicle = true          # stops the keyboard from moving the player
+	player.face(Vector2(0, -1))
+	player.show_frame(0)
+	Game.player_pos = player.position
+	cine_cam_from = cam.position
+	cine_sky_from = sky.color
+	cam.position_smoothing_enabled = false
+	hud.start_cinematic()
+	hud.set_caption("Sol %d is over. Sunrise... and something is coming down from the sky!" % Game.TOTAL_SOLS)
+	_make_rocket()
+
+
+func _make_rocket() -> void:
+	rocket = Node2D.new()
+	rocket.position = PAD_POS + Vector2(0, -1100)
+	world.add_child(rocket)
+	rocket_flame = Polygon2D.new()
+	rocket_flame.polygon = PackedVector2Array([Vector2(-15, -40), Vector2(15, -40), Vector2(6, 10), Vector2(0, 55), Vector2(-6, 10)])
+	rocket_flame.color = Color(1.0, 0.62, 0.2)
+	rocket.add_child(rocket_flame)
+	var core := Polygon2D.new()
+	core.polygon = PackedVector2Array([Vector2(-8, -40), Vector2(8, -40), Vector2(0, 20)])
+	core.color = Color(1.0, 0.95, 0.6)
+	rocket_flame.add_child(core)
+	var body := Sprite2D.new()
+	body.texture = load("res://assets/world/rocket.png")
+	body.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	body.scale = Vector2(2, 2)
+	body.offset = Vector2(0, -float(body.texture.get_height()) / 2.0)
+	rocket.add_child(body)
+	# the door in the rocket picture, painted dark when it opens
+	rocket_door = ColorRect.new()
+	rocket_door.color = Color(0.1, 0.08, 0.1)
+	rocket_door.position = Vector2(-14, -146)
+	rocket_door.size = Vector2(26, 46)
+	rocket_door.visible = false
+	rocket.add_child(rocket_door)
+
+
+func _update_arrival(delta: float) -> void:
+	cine_t += delta
+	Game.player_pos = player.position
+
+	# camera glides to the rocket pad while the sun comes up
+	var k: float = smoothstep(0.0, 3.0, cine_t)
+	cam.position = cine_cam_from.lerp(PAD_VIEW, k)
+	cam.zoom = Vector2.ONE * lerpf(1.0, 0.85, k)
+	sky.color = cine_sky_from.lerp(Color(1, 1, 1), k)
+	hud.set_weather(0.0, 0.0)
+
+	if cine_stage == "pan" and cine_t >= 3.0:
+		cine_stage = "descend"
+		hud.set_caption("The President's rocket is coming home!")
+	if cine_stage == "descend":
+		var f: float = clampf((cine_t - 3.0) / 6.0, 0.0, 1.0)
+		var ease_out: float = 1.0 - pow(1.0 - f, 3.0)
+		rocket.position = PAD_POS + Vector2(0, -1100.0 * (1.0 - ease_out))
+		rocket_flame.scale = Vector2(1.0, 0.8 + 0.4 * absf(sin(cine_t * 30.0)))
+		if f >= 1.0:
+			cine_stage = "landed"
+			rocket.position = PAD_POS
+			rocket_flame.visible = false
+			_make_dust()
+			hud.set_caption("Touchdown!")
+	if cine_stage == "landed" and cine_t >= 10.6:
+		cine_stage = "out"
+		rocket_door.visible = true
+		hud.set_caption("The door opens...")
+		_spawn_arrivals()
+
+	_update_dust(delta)
+
+	if cine_stage == "out":
+		var all_there := true
+		for a in arrivals:
+			var actor = a["actor"]
+			if cine_t < float(a["at"]):
+				all_there = false
+				continue
+			if not actor.visible:
+				actor.visible = true
+			actor.modulate.a = minf(1.0, actor.modulate.a + delta * 3.0)
+			var to: Vector2 = a["goal"] - actor.position
+			if to.length() > 4.0:
+				all_there = false
+				# never step past the goal: on a slow computer the walkers used to jump
+				# back and forth forever, and the ending never finished
+				actor.position = actor.position.move_toward(a["goal"], 110.0 * delta)
+				actor.animate(to.normalized(), delta)
+			else:
+				actor.face(player.position - actor.position)
+				actor.show_frame(0)
+		if all_there:
+			cine_stage = "talk"
+			hud.set_caption("")
+			var settlers: int = arrivals.size() - 1
+			_say(PRESIDENT, "Operator, we are home! And look: %d new families came with me, with many more on the next rockets." % settlers)
+			_say(PRESIDENT, "For %d sols you kept New Hope running all by yourself, and every choice had a cost. You chose well." % Game.TOTAL_SOLS)
+			_say(PRESIDENT, "I knew you could do it! Welcome to the team, Operator.")
+			_say("New settlers", "Hello, New Hope! Thank you for keeping our new home safe!")
+	elif cine_stage == "talk" and not dialog_open:
+		cine_stage = "done"
+		_finish(true, "")
+
+
+func _spawn_arrivals() -> void:
+	arrivals.clear()
+	for data in ARRIVAL_PEOPLE:
+		var actor = ActorScript.new()
+		world.add_child(actor)
+		actor.setup_actor(str(data[1]))
+		actor.position = PAD_POS + Vector2(0, 14)
+		actor.face(Vector2(0, 1))
+		actor.visible = false
+		actor.modulate.a = 0.0
+		arrivals.append({"actor": actor, "goal": data[2], "at": data[3]})
+
+
+func _make_dust() -> void:
+	for i in 10:
+		var puff := Polygon2D.new()
+		var pts := PackedVector2Array()
+		for j in 12:
+			var a: float = TAU * float(j) / 12.0
+			pts.append(Vector2(cos(a) * 34.0, sin(a) * 18.0))
+		puff.polygon = pts
+		puff.color = Color(0.85, 0.6, 0.45, 0.7)
+		puff.position = PAD_POS + Vector2(rng.randf_range(-30.0, 30.0), rng.randf_range(-10.0, 10.0))
+		puff.z_index = 3
+		world.add_child(puff)
+		var angle: float = TAU * float(i) / 10.0
+		dust_puffs.append({"node": puff, "vel": Vector2(cos(angle) * 160.0, sin(angle) * 70.0), "life": 1.6})
+
+
+func _update_dust(delta: float) -> void:
+	var keep := []
+	for d in dust_puffs:
+		var node: Polygon2D = d["node"]
+		d["life"] = float(d["life"]) - delta
+		node.position += d["vel"] * delta
+		node.scale += Vector2(1.2, 1.2) * delta
+		node.color.a = clampf(float(d["life"]) / 1.6, 0.0, 1.0) * 0.7
+		if float(d["life"]) <= 0.0:
+			node.queue_free()
+		else:
+			keep.append(d)
+	dust_puffs = keep
 
 
 # =====================================================================
@@ -1392,13 +2728,22 @@ func _finish(won: bool, reason: String) -> void:
 	var sols_done: int = sol
 	if won:
 		sols_done = sol + 1
+	var why: String = reason
+	if reason == "health":
+		# say what hurt the colony the most
+		var worst := 0.0
+		for key in ["hunger", "cold", "radiation", "debris"]:
+			if float(stats[key]) > worst:
+				worst = float(stats[key])
+				why = str(key)
 	Game.result = {
 		"won": won,
-		"reason": reason,
+		"reason": why,
 		"sols": sols_done,
 		"seconds": elapsed,
 		"energy": energy,
 		"oxygen": oxygen,
+		"food": food,
 		"health": health,
 		"parts": parts,
 		"panels": panels.size(),

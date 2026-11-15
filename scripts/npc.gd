@@ -152,7 +152,8 @@ func _patrol(delta: float) -> void:
 		return
 	var target: Vector2 = points[point_i]
 	var to: Vector2 = target - position
-	if to.length() < 6.0:
+	if to.length() <= maxf(6.0, speed * delta):
+		position = target
 		point_i = (point_i + 1) % points.size()
 		wait = randf_range(2.5, 4.5)
 		return
@@ -165,7 +166,8 @@ func _town(delta: float) -> void:
 	if state == "walk":
 		var node_pos: Vector2 = WorldData.WALK_NODES[step]
 		var to: Vector2 = node_pos + side - position
-		if to.length() < 5.0:
+		if to.length() <= maxf(5.0, speed * delta):
+			position = node_pos + side
 			at = step
 			if at == goal:
 				_arrive()
