@@ -8,7 +8,6 @@ signal tour_skip
 
 const MinimapScript = preload("res://scripts/minimap.gd")
 const GOLD := Color(1.0, 0.85, 0.5)
-const TYPE_SPEED := 45.0
 const DIALOG_POS := Vector2(190, 500)
 const BANNER_POS := Vector2(340, 62)
 
@@ -571,10 +570,11 @@ func _build_choice() -> void:
 
 
 func _process(delta: float) -> void:
-	if dialog_typer.step(delta, TYPE_SPEED) and dialog_active:
+	var speed: float = Game.text_cps()
+	if dialog_typer.step(delta, speed) and dialog_active:
 		Sfx.play("blip", randf_range(0.95, 1.08))
 	dialog_marker.visible = dialog_active and not dialog_typer.typing()
-	if tour_typer.step(delta, TYPE_SPEED) and tour_root.visible:
+	if tour_typer.step(delta, speed) and tour_root.visible:
 		Sfx.play("blip", randf_range(0.95, 1.08))
 	if banner_left > 0.0:
 		banner_left -= delta

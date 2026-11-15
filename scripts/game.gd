@@ -18,6 +18,9 @@ const TOTAL_SOLS := 7         # the President is away for 7 sols
 # and for showing the game quickly. Set this to false to switch the shortcut off.
 const DEV_KEYS := true
 
+const SETTINGS_PATH := "user://settings.cfg"
+const TEXT_SPEEDS := {"slow": 25.0, "normal": 45.0, "instant": 0.0}
+
 const KEYS := "Click / SPACE"
 const KEYS_HOLD := "Hold click / SPACE"
 const KEYS_SAY := "click or press SPACE"
@@ -32,11 +35,15 @@ var paused := false          # true while a dialog is open: everything in the wo
 var shelter := false         # true at night and during storms: townspeople go home
 var player_pos := Vector2.ZERO
 
+var text_speed := "normal"
+var volume := 1.0
+
 # The uneven edge of the map (from world_data.gd). Nobody can walk or drive past it.
 var border := PackedVector2Array()
 
 
 func _ready() -> void:
+	_load_settings()
 	for p in WorldData.BORDER:
 		border.append(p)
 	_add_action("move_left", [KEY_A, KEY_LEFT])
@@ -58,6 +65,45 @@ func _add_action(action: String, keys: Array) -> void:
 			var ev := InputEventKey.new()
 			ev.physical_keycode = k
 			InputMap.action_add_event(action, ev)
+
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) == OK:
+		var speed: String = str(cfg.get_value("game", "text_speed", "normal"))
+		if TEXT_SPEEDS.has(speed):
+			text_speed = speed
+		volume = clampf(float(cfg.get_value("audio", "volume", 1.0)), 0.0, 1.0)
+	_apply_volume()
+
+
+func save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("game", "text_speed", text_speed)
+	cfg.set_value("audio", "volume", volume)
+	cfg.save(SETTINGS_PATH)
+
+
+func set_text_speed(speed: String) -> void:
+	if not TEXT_SPEEDS.has(speed):
+		return
+	text_speed = speed
+	save_settings()
+
+
+func set_volume(value: float) -> void:
+	volume = clampf(value, 0.0, 1.0)
+	_apply_volume()
+	save_settings()
+
+
+func _apply_volume() -> void:
+	AudioServer.set_bus_mute(0, volume <= 0.001)
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(volume, 0.001)))
+
+
+func text_cps() -> float:
+	return float(TEXT_SPEEDS.get(text_speed, 45.0))
 
 
 func dev_keys() -> bool:
