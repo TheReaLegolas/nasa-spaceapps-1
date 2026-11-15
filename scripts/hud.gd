@@ -9,6 +9,7 @@ const MinimapScript = preload("res://scripts/minimap.gd")
 const GOLD := Color(1.0, 0.85, 0.5)
 const TYPE_SPEED := 45.0
 const DIALOG_POS := Vector2(190, 500)
+const BANNER_POS := Vector2(340, 62)
 
 
 class Typer extends RefCounted:
@@ -327,6 +328,8 @@ var banner: Panel
 var banner_title: Label
 var banner_text: Label
 var banner_left := 0.0
+var banner_active := false
+var banner_tween: Tween
 
 var dialog: Panel
 var dialog_name: Label
@@ -336,6 +339,8 @@ var dialog_typer := Typer.new()
 var dialog_active := false
 var dialog_tween: Tween
 var tour_typer := Typer.new()
+var choice_card: Panel
+var choice_tween: Tween
 
 var choice_root: Control
 var choice_who: Label
@@ -413,7 +418,7 @@ func _ready() -> void:
 	tasks_box.add_child(tasks_label)
 
 	# ---- news banner
-	banner = _panel(Vector2(340, 62), Vector2(600, 108), Color(0.1, 0.12, 0.25, 0.9), GOLD, 2, 12)
+	banner = _panel(BANNER_POS, Vector2(600, 108), Color(0.1, 0.12, 0.25, 0.9), GOLD, 2, 12)
 	banner_title = _text(banner, "", 18, GOLD, Vector2(14, 5), Vector2(572, 24))
 	banner_text = _text(banner, "", 17, Color(1, 1, 1), Vector2(14, 29), Vector2(572, 76))
 	banner_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -509,8 +514,10 @@ func _build_choice() -> void:
 	var card := Panel.new()
 	card.position = Vector2(170, 92)
 	card.size = Vector2(940, 520)
+	card.pivot_offset = card.size / 2.0
 	card.add_theme_stylebox_override("panel", _style(Color(0.09, 0.1, 0.19, 0.98), GOLD, 3, 16))
 	choice_root.add_child(card)
+	choice_card = card
 	choice_who = _text(card, "", 18, GOLD, Vector2(28, 14), Vector2(884, 26))
 	choice_title = _text(card, "", 30, Color(1, 1, 1), Vector2(28, 40), Vector2(884, 44))
 	choice_text = _text(card, "", 20, Color(0.92, 0.93, 0.97), Vector2(28, 90), Vector2(884, 110))
@@ -566,7 +573,7 @@ func _process(delta: float) -> void:
 	if banner_left > 0.0:
 		banner_left -= delta
 		if banner_left <= 0.0:
-			banner.visible = false
+			_hide_banner()
 	if toast_left > 0.0:
 		toast_left -= delta
 		toast_label.modulate.a = clampf(toast_left, 0.0, 1.0)
@@ -705,8 +712,26 @@ func show_banner(title: String, text: String, seconds: float = 9.0) -> void:
 	banner_title.text = title
 	Sfx.banner(title)
 	banner_text.text = text
-	banner.visible = true
 	banner_left = seconds
+	if banner_active:
+		return
+	banner_active = true
+	_kill(banner_tween)
+	banner.visible = true
+	banner.modulate.a = 0.0
+	banner.position = BANNER_POS - Vector2(0, 16)
+	banner_tween = create_tween().set_parallel(true)
+	banner_tween.tween_property(banner, "modulate:a", 1.0, 0.22)
+	banner_tween.tween_property(banner, "position", BANNER_POS, 0.22).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+func _hide_banner() -> void:
+	banner_active = false
+	_kill(banner_tween)
+	banner_tween = create_tween().set_parallel(true)
+	banner_tween.tween_property(banner, "modulate:a", 0.0, 0.25)
+	banner_tween.tween_property(banner, "position", BANNER_POS - Vector2(0, 16), 0.25).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	banner_tween.chain().tween_callback(banner.hide)
 
 
 func _kill(tw: Tween) -> void:
@@ -807,6 +832,12 @@ func show_choice(speaker: String, title: String, text: String, options: Array, s
 		choice_enabled[i] = bool(o.get("enabled", true))
 	choice_root.visible = true
 	set_choice_selected(selected)
+	_kill(choice_tween)
+	choice_root.modulate.a = 0.0
+	choice_card.scale = Vector2(0.96, 0.96)
+	choice_tween = create_tween().set_parallel(true)
+	choice_tween.tween_property(choice_root, "modulate:a", 1.0, 0.18)
+	choice_tween.tween_property(choice_card, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func set_choice_selected(index: int) -> void:
@@ -825,6 +856,9 @@ func set_choice_selected(index: int) -> void:
 
 
 func hide_choice() -> void:
+	_kill(choice_tween)
+	choice_root.modulate.a = 1.0
+	choice_card.scale = Vector2.ONE
 	choice_root.visible = false
 
 
