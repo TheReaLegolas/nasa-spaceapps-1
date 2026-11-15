@@ -3,6 +3,10 @@ extends Control
 # (assets/ground/minimap.png); this script adds the area names and the moving marks.
 
 const BorderScript = preload("res://scripts/border.gd")
+const WorldData = preload("res://scripts/world_data.gd")
+
+# buildings that were added after the map picture was drawn: thing id -> colour on the map
+const NEW_BUILDINGS := {"wisdom": Color(0.62, 0.45, 0.92)}
 
 # The roads cut the map into 9 areas. Each one gets a short name so children
 # can see at a glance what is where. [left, top, width, height] in minimap pixels.
@@ -72,6 +76,7 @@ func _draw() -> void:
 			draw_rect(Rect2(0.0, y, size.x, 2.0), Color(1, 1, 1, 0.07))
 	else:
 		_draw_empty_pad()
+		_draw_new_buildings()
 		_draw_outside()
 		_draw_area_names()
 
@@ -95,6 +100,17 @@ func _draw_empty_pad() -> void:
 	draw_arc(PAD_CENTER, 7.0, 0.0, TAU, 24, Color(0.93, 0.93, 0.96), 1.0)
 	draw_rect(Rect2(PAD_CENTER.x - 4.0, PAD_CENTER.y - 0.5, 8.0, 1.5), Color(0.93, 0.93, 0.96))
 	draw_rect(Rect2(PAD_CENTER.x - 0.5, PAD_CENTER.y - 4.0, 1.5, 8.0), Color(0.93, 0.93, 0.96))
+
+
+func _draw_new_buildings() -> void:
+	# the map picture is drawn ahead of time, so newer buildings are painted on top of it
+	for thing in WorldData.THINGS:
+		if not NEW_BUILDINGS.has(str(thing["id"])):
+			continue
+		var col: Rect2 = thing["col"]
+		var box := Rect2(col.position / map_scale, col.size / map_scale)
+		draw_rect(box.grow(1.0), Color(0.24, 0.13, 0.16))
+		draw_rect(box, NEW_BUILDINGS[str(thing["id"])])
 
 
 func _draw_outside() -> void:

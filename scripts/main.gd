@@ -5,6 +5,7 @@ const WorldData = preload("res://scripts/world_data.gd")
 const MachineScript = preload("res://scripts/machine.gd")
 const PlayerScript = preload("res://scripts/player.gd")
 const LearnScript = preload("res://scripts/learn.gd")
+const WisdomScript = preload("res://scripts/wisdom.gd")
 const NpcScript = preload("res://scripts/npc.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const HudScript = preload("res://scripts/hud.gd")
@@ -242,6 +243,8 @@ const TOUR := [
 		"text": "The miners dig up ore. Walk to a miner and {press} to collect it. Every ore becomes 1 spare part."},
 	{"pos": Vector2(4700, 3300), "title": "WORKSHOP",
 		"text": "No ore? The workshop can build a spare part, but each one costs 25 energy. Spare parts repair machines and build new ones."},
+	{"pos": Vector2(4310, 2960), "title": "SHOP OF WISDOM",
+		"text": "Found a ? on the map? Let an expert explain it, then come here. Professor Quill asks one question about it. Think, pick the right answer and win a prize!"},
 	{"pos": Vector2(1460, 1880), "title": "EMPTY PLOTS",
 		"text": "Build here! A new solar panel costs 3 spare parts. A wind turbine costs 4, but it also works at night."},
 	{"pos": Vector2(3560, 1850), "title": "ANTENNA",
@@ -263,6 +266,7 @@ const PLACES := {
 	"nova": "the solar field (west)", "ada": "the command center", "bo": "the mine (north-east)",
 	"sam": "the habitat dome (south)", "tom": "the farm (south-west)",
 	"mira": "the workshop (south-east)", "leo": "the oxygen machine (east)",
+	"quill": "the Shop of Wisdom (south-east)",
 }
 
 # Every kind of problem: who notices it, who knows how to fix it, and what they say.
@@ -499,6 +503,7 @@ var hit_cooldown := 0.0
 
 var quests: Array = []            # problems the colony has right now
 var learn                         # the "explore and learn" mode (scripts/learn.gd)
+var wisdom                        # the Shop of Wisdom: questions about what you learned (scripts/wisdom.gd)
 var details                       # benches, street lamps, hellos... (scripts/details.gd)
 var film                          # the opening scene, the party and the sad ending (scripts/cutscenes.gd)
 var towns: Array = []             # the townspeople who walk around (you cannot talk to them)
@@ -564,6 +569,9 @@ func _ready() -> void:
 	Game.paused = false
 	Game.shelter = false
 	_build_world()
+	wisdom = WisdomScript.new()
+	add_child(wisdom)
+	wisdom.setup(self)
 	learn = LearnScript.new()
 	add_child(learn)
 	learn.setup(self)
@@ -961,8 +969,8 @@ func _process(delta: float) -> void:
 		return
 	if choice_open:
 		choice_time += delta
-	Game.paused = dialog_open or choice_open or touring or learn.book_open or menu_open
-	if learn.book_open or menu_open:
+	Game.paused = dialog_open or choice_open or touring or learn.book_open or menu_open or wisdom.quiz_open
+	if learn.book_open or menu_open or wisdom.quiz_open:
 		hold_target = null
 	if touring:
 		_update_tour(delta)
@@ -1599,6 +1607,7 @@ func _refresh_quests() -> void:
 	for d in decisions:
 		npc_by_id[DILEMMAS[d["id"]]["npc"]].set_alert(true)
 	learn.mark_alerts()
+	wisdom.mark_alerts()
 
 
 func _npc_has_quest(npc) -> bool:
@@ -1614,7 +1623,7 @@ func _npc_has_quest(npc) -> bool:
 	for d in decisions:
 		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
 			return true
-	return learn.wants(npc)
+	return learn.wants(npc) or wisdom.wants(npc)
 
 
 func _report_text(q: Dictionary) -> String:
@@ -1655,6 +1664,8 @@ func _talk(npc) -> void:
 	if _talk_errands(npc):
 		said = true
 	if learn.talk(npc):
+		said = true
+	if wisdom.talk(npc):
 		said = true
 	for d in decisions:
 		if str(DILEMMAS[d["id"]]["npc"]) == str(npc.npc_id):
@@ -2053,7 +2064,7 @@ func _end_tour() -> void:
 
 func _dev_skip() -> void:
 	# testing shortcut (F9): jump to just before the next part of the day
-	if cinematic or film.active or touring or dialog_open or choice_open:
+	if cinematic or film.active or touring or dialog_open or choice_open or wisdom.quiz_open:
 		return
 	var marks := [Game.DAY_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS + Game.NIGHT_SECONDS, Game.SOL_SECONDS]
 	for m in marks:
@@ -2114,6 +2125,8 @@ func _npc_lines(npc) -> Array:
 			"I heard the President is bringing new settlers. More customers! I am baking potato cake.",
 		]
 		lines.append(chat[rng.randi() % chat.size()])
+	elif role == "sage":
+		lines = wisdom.idle_lines()
 	elif role == "explorer":
 		lines = learn.idle_lines()
 	else:
@@ -2272,7 +2285,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			else:
 				_tour_next()
 		return
-	if learn.book_open:
+	if learn.book_open or wisdom.quiz_open:
 		return
 	if choice_open:
 		if event.is_action_pressed("move_left") or event.is_action_pressed("move_right"):
@@ -2688,6 +2701,7 @@ func _tasks() -> Array:
 		else:
 			t.append("Favour: " + str(sq["back"]))
 	t.append_array(learn.tasks())
+	t.append_array(wisdom.tasks())
 	if t.is_empty():
 		if _is_night():
 			t.append("All good! Hold on until sunrise.")
@@ -2745,7 +2759,7 @@ func _update_hud() -> void:
 	hud.set_minimap(player.position, marks, antenna.broken)
 
 	target_marker.visible = false
-	if dialog_open or choice_open or touring or film.active or menu_open:
+	if dialog_open or choice_open or touring or film.active or menu_open or wisdom.quiz_open:
 		hud.set_prompt("")
 		hud.set_hold(-1.0)
 		return
@@ -3050,6 +3064,8 @@ func _finish(won: bool, reason: String) -> void:
 		"turbines": turbines.size(),
 		"discoveries": learn.count(),
 		"discoveries_total": learn.items.size(),
+		"wisdom": wisdom.prizes(),
+		"wisdom_total": wisdom.total(),
 		"stats": stats,
 	}
 	Game.change_scene("res://scenes/end.tscn")

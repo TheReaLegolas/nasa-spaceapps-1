@@ -48,7 +48,7 @@ func _ready() -> void:
 
 	var lines := PackedStringArray()
 	lines.append("Full repairs: %d      Quick patches: %d      Panels wiped clean: %d      Spare parts used: %d" % [int(stats.get("repairs", 0)), int(stats.get("patches", 0)), int(stats.get("cleaned", 0)), int(stats.get("parts_used", 0))])
-	lines.append("Ore collected: %d      Parts built in the workshop: %d      Things you built: %d" % [int(stats.get("ore", 0)), int(stats.get("parts_built", 0)), int(stats.get("built", 0))])
+	lines.append("Ore collected: %d      Parts built in the workshop: %d      Things you built: %d      Wisdom prizes: %d of %d" % [int(stats.get("ore", 0)), int(stats.get("parts_built", 0)), int(stats.get("built", 0)), int(r.get("wisdom", 0)), int(r.get("wisdom_total", 0))])
 	lines.append("Decisions made: %d      Favours done: %d      Space tools discovered: %d of %d      Solar panels: %d      Wind turbines: %d" % [int(stats.get("decisions", 0)), int(stats.get("side", 0)), int(r.get("discoveries", 0)), int(r.get("discoveries_total", 0)), int(r.get("panels", 0)), int(r.get("turbines", 0))])
 	lines.append("Health lost to cold nights: %d      radiation: %d      flying debris: %d      hunger: %d" % [int(stats.get("cold", 0.0)), int(stats.get("radiation", 0.0)), int(stats.get("debris", 0.0)), int(stats.get("hunger", 0.0))])
 	lines.append("Lowest oxygen: %d%%      Lowest food: %d%%      Time with no power: %d seconds" % [int(stats.get("lowest_oxygen", 0.0)), int(stats.get("lowest_food", 0.0)), int(stats.get("blackout", 0.0))])

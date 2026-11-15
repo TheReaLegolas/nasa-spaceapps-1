@@ -103,6 +103,7 @@ const THINGS := [
 	{"id": "tank_f", "kind": "decor", "asset": "tank", "pos": Vector2(960, 3240), "col": Rect2(892, 3120, 136, 112), "solid": true, "title": ""},
 	{"id": "crates_f", "kind": "decor", "asset": "crates", "pos": Vector2(300, 3430), "col": Rect2(252, 3364, 96, 60), "solid": true, "title": ""},
 	{"id": "workshop", "kind": "workshop", "asset": "workshop", "pos": Vector2(4700, 3420), "col": Rect2(4474, 3132, 452, 280), "solid": true, "title": "Workshop"},
+	{"id": "wisdom", "kind": "decor", "asset": "wisdom_shop", "pos": Vector2(4310, 3060), "col": Rect2(4184, 2892, 252, 160), "solid": true, "title": "Shop of Wisdom"},
 	{"id": "crates_s1", "kind": "decor", "asset": "crates", "pos": Vector2(5120, 3300), "col": Rect2(5072, 3234, 96, 60), "solid": true, "title": ""},
 	{"id": "tank_s1", "kind": "decor", "asset": "tank", "pos": Vector2(5400, 3400), "col": Rect2(5332, 3280, 136, 112), "solid": true, "title": ""},
 	{"id": "tank_s2", "kind": "decor", "asset": "tank", "pos": Vector2(5570, 3450), "col": Rect2(5502, 3330, 136, 112), "solid": true, "title": ""},
@@ -227,6 +228,7 @@ const NPCS := [
 	{"id": "sam", "name": "Dr. Sam", "role": "doctor", "sheet": "doctor", "pos": Vector2(3150, 3996)},
 	{"id": "nova", "name": "Technician Nova", "role": "technician", "sheet": "technician", "pos": Vector2(1090, 2230)},
 	{"id": "tom", "name": "Farmer Tom", "role": "farmer", "sheet": "farmer", "pos": Vector2(880, 3360)},
+	{"id": "quill", "name": "Professor Quill", "role": "sage", "sheet": "sage", "pos": Vector2(4392, 3098)},
 ]
 const VENDORS := [[Vector2(2646, 2246), "town5"], [Vector2(3354, 2246), "town6"], [Vector2(2594, 2466), "town1"], [Vector2(3406, 2466), "town4"]]
 const MINERS := [
@@ -299,6 +301,7 @@ const HULLS := {
 	"greenhouse": [Vector2(-210, -144), Vector2(-200, -174), Vector2(-184, -196), Vector2(-162, -216), Vector2(-110, -244), Vector2(-58, -258), Vector2(-26, -262), Vector2(26, -262), Vector2(58, -258), Vector2(110, -244), Vector2(162, -216), Vector2(184, -196), Vector2(206, -166), Vector2(210, -144), Vector2(214, -12), Vector2(-214, -12)],
 	"heater": [Vector2(-130, -204), Vector2(-98, -294), Vector2(94, -294), Vector2(130, -204), Vector2(128, -14), Vector2(-128, -14)],
 	"house_a": [Vector2(-126, -132), Vector2(-120, -154), Vector2(-76, -224), Vector2(82, -218), Vector2(120, -154), Vector2(126, -132), Vector2(122, -16), Vector2(38, -8), Vector2(-38, -8), Vector2(-122, -16)],
+	"wisdom_shop": [Vector2(-126, -132), Vector2(-120, -154), Vector2(-76, -224), Vector2(82, -218), Vector2(120, -154), Vector2(126, -132), Vector2(122, -16), Vector2(38, -8), Vector2(-38, -8), Vector2(-122, -16)],
 	"house_b": [Vector2(-126, -132), Vector2(-120, -154), Vector2(-76, -224), Vector2(82, -218), Vector2(120, -154), Vector2(126, -132), Vector2(122, -16), Vector2(38, -8), Vector2(-38, -8), Vector2(-122, -16)],
 	"house_c": [Vector2(-126, -132), Vector2(-120, -154), Vector2(-76, -224), Vector2(82, -218), Vector2(120, -154), Vector2(126, -132), Vector2(122, -16), Vector2(38, -8), Vector2(-38, -8), Vector2(-122, -16)],
 	"lamp": [Vector2(-16, -140), Vector2(14, -142), Vector2(16, -140), Vector2(12, -6), Vector2(-10, -4), Vector2(-12, -6)],

@@ -160,6 +160,27 @@ class Pages extends Control:
 			ring_y += 34.0
 
 
+# Gold stars next to a notebook entry: prizes won at the Shop of Wisdom
+# (two for a right answer on the first try, one on the second).
+class Stars extends Control:
+	var count := 0
+
+	func _draw() -> void:
+		for i in count:
+			var centre := Vector2(13.0 + 28.0 * float(i), 13.0)
+			var shape := PackedVector2Array()
+			var edge := PackedVector2Array()
+			for k in 10:
+				var a: float = -PI / 2.0 + TAU * float(k) / 10.0
+				var r: float = 12.0
+				if k % 2 == 1:
+					r = 5.2
+				shape.append(centre + Vector2(cos(a), sin(a)) * r)
+				edge.append(centre + Vector2(cos(a), sin(a)) * (r + 2.0))
+			draw_colored_polygon(edge, Color(0.55, 0.36, 0.05))
+			draw_colored_polygon(shape, Color(1.0, 0.82, 0.2))
+
+
 # A photo stuck into the notebook with tape. While the tool has not been found yet,
 # it is an empty dashed frame with a "?" in it.
 class Photo extends Control:
@@ -408,6 +429,9 @@ func talk(npc) -> bool:
 		said = true
 		for line in _tr(item, "satirlar"):
 			main._say(npc.npc_name, str(line))
+		if main.wisdom != null and main.wisdom.has_question(item):
+			# the expert teaches the basics; the Shop of Wisdom asks what follows from them
+			main._say(npc.npc_name, "Think about what I told you! Professor Quill at the Shop of Wisdom will ask you a question about it. A right answer wins a prize.")
 		state[str(item["id"])] = "learned"
 		main.after_dialog.append(_learned.bind(item))
 	return said
@@ -423,6 +447,8 @@ func _learned(item: Dictionary) -> void:
 		main.hud.show_banner("NOTEBOOK COMPLETE!", "You discovered all %d space tools. You are a real space explorer! Press N or click the book to read your Discovery Notebook." % items.size(), 12.0)
 	else:
 		main.hud.toast("New in your notebook: %s (%d of %d). Press N or click the book." % [item_name(item), n, items.size()])
+	if main.wisdom != null:
+		main.wisdom.on_learned(item)
 	main._refresh_quests()
 	_refresh_ui()
 
@@ -461,6 +487,7 @@ const INK := Color(0.1, 0.16, 0.5)             # blue pen: titles and names
 const INK_DARK := Color(0.14, 0.14, 0.2)       # dark pen: what you learned
 const PENCIL := Color(0.42, 0.42, 0.48)        # pencil: hints and small notes
 const STAMP := Color(0.85, 0.12, 0.1)          # the red "NEW!" stamp
+const INK_GREEN := Color(0.08, 0.42, 0.2)      # green pen: what you worked out at the Shop of Wisdom
 
 # Where the notebook and its two pages are on the screen.
 const BOOK_POS := Vector2(90, 30)
@@ -620,7 +647,14 @@ func _build_ui() -> void:
 		var text_x: float = WRITE_X + 96.0
 		var text_w: float = page.size.x - text_x - 22.0
 		var head := _write(page, line, text_x, text_w, "", 21, INK, hand_bold)
-		var body := _write(page, line + 1, text_x, text_w, "", 17, INK_DARK, hand, 3)
+		var body := _write(page, line + 1, text_x, text_w, "", 17, INK_DARK, hand, 2)
+		# what the player worked out at the Shop of Wisdom, and the stars won there
+		var note := _write(page, line + 3, text_x, text_w, "", 16, INK_GREEN, hand, 2)
+		var prize_stars := Stars.new()
+		prize_stars.position = Vector2(page.position.x + page.size.x - 76.0, _line_y(page, line) - 24.0)
+		prize_stars.size = Vector2(56, 26)
+		prize_stars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		book.add_child(prize_stars)
 		var stamp := _label(book, "NEW!", 20, STAMP, Vector2(page.position.x + WRITE_X - 18.0, _line_y(page, line) + 40.0), Vector2(74, 28))
 		stamp.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stamp.add_theme_font_override("font", hand_bold)
@@ -632,7 +666,7 @@ func _build_ui() -> void:
 		stamp.add_theme_stylebox_override("normal", ring)
 		stamp.pivot_offset = Vector2(37, 14)
 		stamp.rotation = -0.2
-		cells.append({"photo": photo, "pic": pic, "big": big, "head": head, "body": body, "stamp": stamp})
+		cells.append({"photo": photo, "pic": pic, "big": big, "head": head, "body": body, "stamp": stamp, "note": note, "stars": prize_stars})
 
 	# where the facts come from, in small print at the bottom of the right page
 	var note := _write(PAGE_RIGHT, 16, WRITE_X, write_w, "Where these facts come from (real space missions):", 15, INK, hand_bold)
@@ -676,6 +710,22 @@ func _refresh_ui() -> void:
 		c["pic"].visible = open
 		c["big"].visible = not open
 		c["stamp"].visible = open and fresh.has(str(item["id"]))
+		# the Shop of Wisdom: stars for a prize, and the thing the player worked out
+		var won: int = -1
+		var asks := false
+		if main.wisdom != null:
+			won = main.wisdom.stars(item)
+			asks = main.wisdom.has_question(item)
+		c["stars"].count = maxi(won, 0)
+		c["stars"].visible = open and won > 0
+		c["stars"].queue_redraw()
+		c["note"].text = ""
+		if open and won >= 0:
+			c["note"].text = str(_tr(item, "bilgi"))
+			c["note"].add_theme_color_override("font_color", INK_GREEN)
+		elif open and asks:
+			c["note"].text = "Professor Quill has a question about this!"
+			c["note"].add_theme_color_override("font_color", PENCIL)
 		if open:
 			c["pic"].texture = _picture(item)
 			c["head"].text = item_name(item)
@@ -696,7 +746,7 @@ func _refresh_ui() -> void:
 
 
 func _can_open() -> bool:
-	return not (main.game_over or main.cinematic or main.film.active or main.dialog_open or main.choice_open or main.touring or main.menu_open)
+	return not (main.game_over or main.cinematic or main.film.active or main.dialog_open or main.choice_open or main.touring or main.menu_open or main.wisdom.quiz_open)
 
 
 func toggle_book() -> void:
