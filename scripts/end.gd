@@ -88,7 +88,7 @@ func _what_if(won: bool, reason: String, stats: Dictionary, _r: Dictionary) -> S
 	if blackout > 60.0:
 		return "The colony lost power for a while. What if you had switched one machine off at sunset, so the battery lasted the whole night?"
 	if patches > repairs + 1:
-		return "You used many quick patches, and they kept falling off. What if you had spent spare parts on full repairs instead?"
+		return "You often had no spare parts, so your quick patches kept falling off. What if you had collected more ore from the miners?"
 	if built == 0:
 		return "You never built anything new. What if you had spent some spare parts on extra solar panels or a wind turbine?"
 	return "You hardly lost any health! Can you do it again with fewer spare parts, or without a single quick patch?"

@@ -51,8 +51,8 @@ const ORE_MAX := 2                # the most ore one miner can hold
 const WARN_SECONDS := 40.0        # how early Mars News warns about storms
 const QUIET_DAYS := 2             # sols with no storm, flare or freezing night (side quests instead)
 const SIDE_QUESTS_PER_QUIET_DAY := 2
-const REPAIR_SECONDS := 2.4       # how long you hold E for a full repair
-const PATCH_SECONDS := 1.6        # how long you hold E for a quick patch
+const REPAIR_SECONDS := 2.4       # how long you hold E for a repair (uses 1 spare part)
+const PATCH_SECONDS := 1.6        # how long you hold E for a quick patch (when you have no spare parts)
 
 # ---------------- the story: the President is away for Game.TOTAL_SOLS sols
 const PRESIDENT := "President Aria"
@@ -220,8 +220,8 @@ const FAULTS := {
 		"reporter": "nova", "expert": "nova", "also": "dust",
 		"where": "The solar field is west of the town.",
 		"report": "Some of our solar panels are broken! A broken panel makes no energy at all.",
-		"how": "Walk to a broken panel and press E. Then you choose: a FULL REPAIR uses 1 spare part and lasts. A QUICK PATCH is free, but it falls off the next morning.",
-		"again": "You know what to do: full repair or quick patch, your choice.",
+		"how": "Walk to a broken panel and hold E. The repair uses 1 spare part. If you have no spare parts left, you can only put on a quick patch, and that falls off the next morning.",
+		"again": "You know what to do: hold E next to each broken panel.",
 		"task": "Fix the broken solar panels",
 	},
 	"dust": {
@@ -236,15 +236,15 @@ const FAULTS := {
 		"reporter": "nova", "expert": "nova", "also": "",
 		"where": "The battery stands in the solar field in the west, just below the panels.",
 		"report": "The battery is leaking energy! It wastes 2 bolts of power all the time.",
-		"how": "Walk to the battery and press E. A full repair uses 1 spare part. A quick patch is free, but it falls off the next morning.",
-		"again": "Fix the battery: full repair or quick patch.",
+		"how": "Walk to the battery and hold E. The repair uses 1 spare part. With no spare parts you can only patch it until tomorrow morning.",
+		"again": "Fix the battery: hold E next to it.",
 		"task": "Fix the leaking battery",
 	},
 	"cable": {
 		"reporter": "ada", "expert": "nova", "also": "",
 		"where": "It is the pole next to the battery, in the solar field in the west.",
 		"report": "The lights keep flickering! Something must be wrong with the power line from the solar field.",
-		"how": "The power line carries energy from the solar field to the town. While it is broken, only half of the energy arrives. Walk to the pole next to the battery and press E: full repair or quick patch.",
+		"how": "The power line carries energy from the solar field to the town. While it is broken, only half of the energy arrives. Walk to the pole next to the battery and hold E to repair it.",
 		"again": "Fix the power line pole next to the battery.",
 		"task": "Fix the power line",
 	},
@@ -252,15 +252,15 @@ const FAULTS := {
 		"reporter": "ada", "expert": "mira", "also": "",
 		"where": "The antenna stands right next to the Command Center, in the middle of the town.",
 		"report": "I cannot broadcast! The antenna is broken. There are no storm warnings, and the map picture is gone: your map only works as a simple radar now.",
-		"how": "The antenna sends the news and the map picture. Walk to it and press E: a full repair uses 1 spare part, a quick patch is free but falls off tomorrow morning.",
-		"again": "Fix the antenna: full repair or quick patch.",
+		"how": "The antenna sends the news and the map picture. Walk to it and hold E. The repair uses 1 spare part.",
+		"again": "Fix the antenna: hold E next to it.",
 		"task": "Fix the antenna",
 	},
 	"drill": {
 		"reporter": "bo", "expert": "mira", "also": "",
 		"where": "The drill is at the mine, in the north-east.",
 		"report": "The mine drill is jammed! We cannot dig any ore until it is fixed.",
-		"how": "No drill means no ore, and no ore means no new spare parts. Walk to the drill at the mine and press E: full repair or quick patch.",
+		"how": "No drill means no ore, and no ore means no new spare parts. Walk to the drill at the mine and hold E to repair it.",
 		"again": "Fix the drill and we will get back to digging.",
 		"task": "Fix the mine drill",
 	},
@@ -268,7 +268,7 @@ const FAULTS := {
 		"reporter": "sam", "expert": "leo", "also": "",
 		"where": "The oxygen machine is east of the town, across the road.",
 		"report": "People are getting dizzy. The oxygen machine has stopped working!",
-		"how": "The oxygen machine turns Mars air into air we can breathe. Walk to it and press E: full repair or quick patch. Then check that it is switched ON.",
+		"how": "The oxygen machine turns Mars air into air we can breathe. Walk to it and hold E to repair it. Then check that it is switched ON.",
 		"again": "Fix the oxygen machine, then check that it is ON.",
 		"task": "Fix the oxygen machine",
 	},
@@ -276,7 +276,7 @@ const FAULTS := {
 		"reporter": "sam", "expert": "leo", "also": "",
 		"where": "Look for the red AIR LEAK! sign on a building.",
 		"report": "A meteorite hit a home! Air is leaking out.",
-		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Walk to the building and press E: a full repair seals it for good, a quick patch only until tomorrow.",
+		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Walk to the building and hold E to seal the hole. It uses 1 spare part.",
 		"again": "Seal the hole before we lose too much air.",
 		"task": "Seal the air leak",
 	},
@@ -284,7 +284,7 @@ const FAULTS := {
 		"reporter": "tom", "expert": "tom", "also": "",
 		"where": "The greenhouse is in the south-west.",
 		"report": "The grow lights in the greenhouse went out! Without light the plants stop growing, and we will run out of food.",
-		"how": "Walk to the greenhouse and press E: a full repair uses 1 spare part, a quick patch is free but falls off tomorrow morning. Then check that the lights are ON.",
+		"how": "Walk to the greenhouse and hold E. The repair uses 1 spare part. Then check that the lights are ON.",
 		"again": "Fix the greenhouse lights, then check that they are ON.",
 		"task": "Fix the greenhouse lights",
 	},
@@ -432,7 +432,6 @@ var hold_time := 0.0
 # key: the thing's instance id, value: {"text": action text, "time": seconds already held}
 var hold_saved := {}
 
-var fix_method := {}              # how the player chose to fix a thing: instance id -> "part" or "patch"
 var decisions: Array = []         # decisions waiting for an answer: {"id": name}
 var pending: Array = []           # things that arrive on a later morning: {"sol", "effects", "text"}
 var storm_fold := false           # the player chose to fold the panels for today's storm
@@ -1877,7 +1876,7 @@ func _npc_lines(npc) -> Array:
 	var role: String = npc.role
 	if role == "engineer":
 		lines.append("I fix things and I can teach you how. When somebody has a problem, a ! shows over their head and on your map.")
-		lines.append("Every repair is a choice. A full repair uses 1 spare part and lasts. A quick patch is free, but it falls off the next morning.")
+		lines.append("A repair uses 1 spare part and lasts. If you have no spare parts left, you can only put on a quick patch, and it falls off the next morning.")
 		lines.append("Out of spare parts? Collect ore from the miners, or press E at my workshop to build one. But the workshop uses a lot of energy!")
 	elif role == "doctor":
 		if flare_left > 0.0 and not shield.works():
@@ -2170,15 +2169,15 @@ func _action_for(t) -> Dictionary:
 			return _act("Something is wrong here. Follow the ! on your %s to find out what to do." % _map_word(), "none", 0.0)
 		if fault == "dust":
 			return _act("Hold E: wipe the dust off this solar panel", "hold", 1.5)
+		# With a spare part the repair lasts. With none, a quick patch holds until tomorrow morning.
+		if fault == "leak":
+			if parts > 0:
+				return _act("Hold E: seal the hole in %s (uses 1 spare part)" % str(t.title), "hold", REPAIR_SECONDS)
+			return _act("Hold E: patch the hole in %s (no spare parts, so the patch falls off tomorrow)" % str(t.title), "hold", PATCH_SECONDS)
 		var thing: String = str(t.title).to_lower()
-		var method: String = str(fix_method.get(t.get_instance_id(), ""))
-		if method == "part" and parts <= 0:
-			method = ""                # the spare part was used somewhere else: choose again
-		if method == "part":
-			return _act("Hold E: full repair of the %s (uses 1 spare part)" % thing, "hold", REPAIR_SECONDS)
-		if method == "patch":
-			return _act("Hold E: quick patch on the %s (free, but it falls off tomorrow)" % thing, "hold", PATCH_SECONDS)
-		return _act("Press E: fix the %s (you choose how)" % thing, "press", 0.0)
+		if parts > 0:
+			return _act("Hold E: repair the %s (uses 1 spare part)" % thing, "hold", REPAIR_SECONDS)
+		return _act("Hold E: quick patch on the %s (no spare parts, so it falls off tomorrow)" % thing, "hold", PATCH_SECONDS)
 
 	if kind == "workshop":
 		if energy >= WORKSHOP_COST + 5.0:
@@ -2219,8 +2218,6 @@ func _do_press(t) -> void:
 		_pick_up(t)
 	elif t.what == "vehicle":
 		_enter_rover(t)
-	elif _fault_of(t) != "":
-		_ask_fix(t)
 	elif t.kind == "workshop":
 		energy -= WORKSHOP_COST
 		parts += 1
@@ -2242,36 +2239,6 @@ func _switch(t) -> void:
 	if not t.is_on:
 		state = "OFF"
 	hud.toast("%s %s.  Power now: making %d bolts, using %d." % [str(info["name"]).capitalize(), state, int(round(_power_made())), int(round(_power_used()))])
-
-
-func _ask_fix(t) -> void:
-	# every repair is a choice: spend a spare part, or patch it for free until tomorrow
-	var fault: String = _fault_of(t)
-	if fault == "" or fault == "dust":
-		return
-	var thing: String = str(t.title).to_upper()
-	var title: String = "THE %s IS BROKEN" % thing
-	if fault == "leak":
-		title = "AIR IS LEAKING FROM %s" % thing
-	var can_part: bool = parts > 0
-	var part_lines := ["- Uses 1 spare part (you have %d)" % parts, "+ Fixed for good"]
-	if not can_part:
-		part_lines = ["- You have no spare parts!", "Collect ore from the miners, or build a part in the workshop."]
-	var options := [
-		{"label": "FULL REPAIR", "lines": part_lines, "enabled": can_part},
-		{"label": "QUICK PATCH", "lines": ["+ Costs no spare part", "- It falls off tomorrow morning, and this breaks again"], "enabled": true},
-	]
-	_ask("How do you want to fix it?", title, "Spare parts are hard to get, and you also need them to build new solar panels and wind turbines.", options, _fix_chosen.bind(t))
-
-
-func _fix_chosen(i: int, t) -> void:
-	if not is_instance_valid(t):
-		return
-	if i == 0:
-		fix_method[t.get_instance_id()] = "part"
-	else:
-		fix_method[t.get_instance_id()] = "patch"
-	hud.toast("Now hold E to do the work.")
 
 
 func _update_hold(delta: float) -> void:
@@ -2334,23 +2301,19 @@ func _finish_hold(t) -> void:
 		t.dusty = false
 		stats["cleaned"] += 1
 	else:
-		var id: int = t.get_instance_id()
-		var method: String = str(fix_method.get(id, "part"))
-		fix_method.erase(id)
-		if method == "patch":
-			t.patched = true
-			t.patch_fault = fault
-			stats["patches"] += 1
-			hud.toast("Patched! It works again, but only until tomorrow morning.")
-		else:
-			if parts <= 0:
-				return
+		if parts > 0:
 			parts -= 1
 			stats["parts_used"] += 1
 			stats["repairs"] += 1
 			t.patched = false
 			t.patch_fault = ""
-			hud.toast("Repaired for good!")
+			hud.toast("Repaired for good! It used 1 spare part.")
+		else:
+			# no spare parts: a quick patch that falls off the next morning
+			t.patched = true
+			t.patch_fault = fault
+			stats["patches"] += 1
+			hud.toast("No spare parts, so you patched it. The patch falls off tomorrow morning.")
 		if fault == "leak":
 			t.leaking = false
 		else:
