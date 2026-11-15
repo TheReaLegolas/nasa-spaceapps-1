@@ -934,6 +934,8 @@ func _process(delta: float) -> void:
 	if choice_open:
 		choice_time += delta
 	Game.paused = dialog_open or choice_open or touring or learn.book_open
+	if learn.book_open:
+		hold_target = null
 	if touring:
 		_update_tour(delta)
 		Game.player_pos = player.position
@@ -2233,6 +2235,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				tour_t = 1.0
 			else:
 				_tour_next()
+		return
+	if learn.book_open:
 		return
 	if choice_open:
 		if event.is_action_pressed("move_left") or event.is_action_pressed("move_right"):
