@@ -10,6 +10,7 @@ var world_size := Vector2(6000, 4200)
 var in_vehicle := false            # true while driving a rover
 var knock := Vector2.ZERO          # push from being hit by flying debris
 var edge_push := 0.0               # how long the player has been walking into the edge of the map
+var step_timer := 0.0              # time until the next footstep sound
 var on_wrap := Callable()          # main.gd is told when the player comes out on the other side
 
 const EDGE_SECONDS := 0.35         # walk into the edge this long to come out on the other side
@@ -59,6 +60,13 @@ func _process(delta: float) -> void:
 			if on_wrap.is_valid():
 				on_wrap.call()
 	animate(dir, delta)
+	if dir.length() > 0.1:
+		step_timer -= delta
+		if step_timer <= 0.0:
+			step_timer = 0.3
+			Sfx.play("step", randf_range(0.85, 1.15))
+	else:
+		step_timer = 0.0
 
 
 func push_out(p: Vector2) -> Vector2:

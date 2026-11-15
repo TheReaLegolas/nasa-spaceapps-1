@@ -815,6 +815,7 @@ func _morning() -> void:
 # =====================================================================
 
 func _process(delta: float) -> void:
+	_update_sounds()
 	if game_over:
 		return
 	if cinematic:
@@ -841,6 +842,32 @@ func _process(delta: float) -> void:
 	cam.position = player.position + Vector2(0, -40)
 	_update_look(delta)
 	_update_hud()
+
+
+func _update_sounds() -> void:
+	# the sounds that keep going while something is happening
+	var live: bool = not game_over and not cinematic
+	var free: bool = live and not Game.paused
+	Sfx.loop("wind_loop", live and storm_left > 0.0)
+	Sfx.loop("geiger_loop", live and flare_left > 0.0)
+	var job := ""
+	if free and hold_target != null and is_instance_valid(hold_target):
+		if not hold_target.built:
+			job = "build_loop"
+		elif hold_target.dusty and not hold_target.broken and not hold_target.leaking:
+			job = "wipe_loop"
+		else:
+			job = "repair_loop"
+	for key in ["build_loop", "wipe_loop", "repair_loop"]:
+		Sfx.loop(key, key == job)
+	var rolling: bool = free and driving != null and energy > 1.0 and Input.get_vector("move_left", "move_right", "move_up", "move_down").length() > 0.01
+	Sfx.loop("rover_loop", rolling)
+	if live:
+		var p: String = _phase()
+		if p == "dusk" or p == "night":
+			Sfx.music("music_calm")
+		else:
+			Sfx.music("music_day")
 
 
 func _phase() -> String:
@@ -941,6 +968,7 @@ func _simulate(delta: float) -> void:
 				if (m == oxy_machine or m == greenhouse) and not restart_list.has(m):
 					restart_list.append(m)
 		if any_on:
+			Sfx.play("power_down")
 			hud.show_banner("POWER OUT!", "The battery is empty, so every machine switched itself off. The oxygen machine and the greenhouse lights will start again when the Sun is back.", 11.0)
 	elif not restart_list.is_empty():
 		_try_restart()
@@ -1061,6 +1089,7 @@ func _try_restart() -> void:
 		m.is_on = true
 		m.refresh()
 		restart_list.remove_at(0)
+		Sfx.play("switch_on")
 		hud.toast("The power is back: the %s started again." % str(SWITCHES[m.kind]["name"]))
 
 
@@ -1190,6 +1219,8 @@ func _break_panels(count: int, report: String) -> void:
 		working[i].broken = true
 		working[i].refresh()
 		hit.append(working[i])
+	Sfx.play("breakdown")
+	Sfx.play("spark")
 	_start_fault("panels", hit, "", "", report)
 
 
@@ -1223,6 +1254,7 @@ func _start_storm(breaks: int) -> void:
 	else:
 		storm_dir = -1.0
 	debris_timer = 1.5
+	Sfx.play("gust")
 	for t in turbines:
 		t.anim_speed = 16.0
 	# if the player never answered Nova, the panels simply stay open
@@ -1286,6 +1318,8 @@ func _meteorite() -> void:
 	var target = options[rng.randi() % options.size()]
 	target.leaking = true
 	target.refresh()
+	Sfx.play("impact")
+	Sfx.play("air_leak")
 	_start_fault("leak", [target], "METEORITE!", "A rock from space just hit the colony.")
 
 
@@ -1309,6 +1343,8 @@ func _break_machine(fault: String) -> void:
 		return
 	m.broken = true
 	m.refresh()
+	Sfx.play("breakdown")
+	Sfx.play("spark")
 	if fault == "antenna":
 		_start_fault(fault, [m], "NO SIGNAL!", "The map picture and the storm warnings are down.")
 	else:
@@ -1509,6 +1545,7 @@ func _collect_ore(npc) -> void:
 	npc.ore = 0
 	npc.ore_timer = 0.0
 	npc.set_bubble("")
+	Sfx.play("coin")
 	if n == 1:
 		hud.toast("+1 spare part from %s" % npc.npc_name)
 	else:
@@ -1581,6 +1618,7 @@ func _reward(q: Dictionary) -> void:
 	if int(q["energy"]) > 0:
 		energy = minf(100.0, energy + float(q["energy"]))
 		got.append("+%d energy" % int(q["energy"]))
+	Sfx.play("success")
 	hud.toast("Favour done!  " + "  ".join(got))
 
 
@@ -1601,6 +1639,7 @@ func _pick_up(it) -> void:
 		if e["item"] == it and e["stage"] == 1:
 			e["stage"] = 2
 			e["item"] = null
+			Sfx.play("coin")
 			hud.toast(str(SIDE_QUESTS[e["id"]]["got"]))
 	errand_items.erase(it)
 	it.queue_free()
@@ -1783,6 +1822,7 @@ func _choose(i: int) -> void:
 	if not choice_enabled[i]:
 		return
 	choice_open = false
+	Sfx.play("ui_confirm")
 	hud.hide_choice()
 	Game.paused = dialog_open
 	var done: Callable = choice_done
@@ -1981,6 +2021,7 @@ func _enter_rover(v) -> void:
 	player.visible = false
 	player.position = v.position
 	hold_target = null
+	Sfx.play("door")
 	hud.toast("Driving! Arrow keys to steer, E to get out.")
 
 
@@ -1995,6 +2036,7 @@ func _exit_rover() -> void:
 			break
 	driving = null
 	v.mode = "parked"
+	Sfx.play("door", 1.15)
 	player.in_vehicle = false
 	player.visible = true
 	player.position = chosen
@@ -2061,6 +2103,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var other: int = 1 - choice_sel
 			if choice_enabled[other]:
 				choice_sel = other
+				Sfx.play("ui_move")
 				hud.set_choice_selected(choice_sel)
 		elif event.is_action_pressed("interact") and choice_time > 0.6:
 			_choose(choice_sel)
@@ -2222,6 +2265,7 @@ func _do_press(t) -> void:
 		energy -= WORKSHOP_COST
 		parts += 1
 		stats["parts_built"] += 1
+		Sfx.play("workshop")
 		hud.toast("+1 spare part (it cost %d energy)" % int(WORKSHOP_COST))
 	elif t.switchable:
 		_switch(t)
@@ -2232,6 +2276,13 @@ func _switch(t) -> void:
 	t.is_on = not t.is_on
 	t.refresh()
 	restart_list.erase(t)             # the player decided, so no automatic restart
+	if t.is_on:
+		Sfx.play("switch_on")
+		if t.kind == "shield":
+			Sfx.play("shield")
+	else:
+		Sfx.play("switch_off")
+		Sfx.play("power_down")
 	var info: Dictionary = SWITCHES.get(t.kind, {})
 	if info.is_empty():
 		return
@@ -2279,6 +2330,7 @@ func _finish_hold(t) -> void:
 		stats["built"] += 1
 		t.convert_to("panel", "solar_panel", "Solar panel", Rect2(t.position.x - 75.0, t.position.y - 66.0, 150.0, 60.0))
 		panels.append(t)
+		Sfx.play("success")
 		hud.toast("You built a solar panel: 1 more bolt of power by day!")
 		return
 	if kind == "plot_wind":
@@ -2291,6 +2343,7 @@ func _finish_hold(t) -> void:
 		if storm_left > 0.0:
 			t.anim_speed = 16.0
 		turbines.append(t)
+		Sfx.play("success")
 		hud.toast("You built a wind turbine: 1 more bolt of power, day and night!")
 		return
 
@@ -2300,6 +2353,7 @@ func _finish_hold(t) -> void:
 	if fault == "dust":
 		t.dusty = false
 		stats["cleaned"] += 1
+		Sfx.play("ui_select")
 	else:
 		if parts > 0:
 			parts -= 1
@@ -2307,12 +2361,14 @@ func _finish_hold(t) -> void:
 			stats["repairs"] += 1
 			t.patched = false
 			t.patch_fault = ""
+			Sfx.play("success")
 			hud.toast("Repaired for good! It used 1 spare part.")
 		else:
 			# no spare parts: a quick patch that falls off the next morning
 			t.patched = true
 			t.patch_fault = fault
 			stats["patches"] += 1
+			Sfx.play("tape")
 			hud.toast("No spare parts, so you patched it. The patch falls off tomorrow morning.")
 		if fault == "leak":
 			t.leaking = false
@@ -2584,6 +2640,7 @@ func _update_arrival(delta: float) -> void:
 
 	if cine_stage == "pan" and cine_t >= 3.0:
 		cine_stage = "descend"
+		Sfx.play("rocket")
 		hud.set_caption("The President's rocket is coming home!")
 	if cine_stage == "descend":
 		var f: float = clampf((cine_t - 3.0) / 6.0, 0.0, 1.0)
@@ -2594,11 +2651,13 @@ func _update_arrival(delta: float) -> void:
 			cine_stage = "landed"
 			rocket.position = PAD_POS
 			rocket_flame.visible = false
+			Sfx.play("touchdown")
 			_make_dust()
 			hud.set_caption("Touchdown!")
 	if cine_stage == "landed" and cine_t >= 10.6:
 		cine_stage = "out"
 		rocket_door.visible = true
+		Sfx.play("door")
 		hud.set_caption("The door opens...")
 		_spawn_arrivals()
 
@@ -2687,6 +2746,7 @@ func _update_dust(delta: float) -> void:
 
 func _finish(won: bool, reason: String) -> void:
 	game_over = true
+	Sfx.stop_loops()
 	Game.paused = false
 	var sols_done: int = sol
 	if won:

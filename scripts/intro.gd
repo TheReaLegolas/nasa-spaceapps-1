@@ -258,6 +258,7 @@ var f_slant: FontVariation
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Sfx.music("music_calm")
 	_make_fonts()
 
 	var bg := ColorRect.new()
@@ -318,8 +319,12 @@ func _next() -> void:
 		return
 	index += 1
 	if index >= PAPERS.size():
+		Sfx.play("ui_confirm")
 		_start_game()
 		return
+	if index > 0:
+		Sfx.play("paper_flip")
+	Sfx.play("paper")
 	_show_paper(PAPERS[index])
 
 

@@ -7,6 +7,7 @@ var buttons := {}
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	Sfx.music("music_calm")
 
 	var bg := ColorRect.new()
 	bg.color = Color(0.16, 0.07, 0.06)
@@ -94,6 +95,8 @@ func _add_card(id: String, text: String, pos: Vector2) -> void:
 
 
 func _select(id: String) -> void:
+	if id != selected:
+		Sfx.play("ui_select")
 	selected = id
 	for key in buttons:
 		var b: Button = buttons[key]
@@ -107,8 +110,10 @@ func _select(id: String) -> void:
 
 func _on_tour_toggled(on: bool) -> void:
 	Game.show_tour = on
+	Sfx.play("ui_move")
 
 
 func _on_start() -> void:
 	Game.character = selected
+	Sfx.play("ui_confirm")
 	get_tree().change_scene_to_file("res://scenes/intro.tscn")

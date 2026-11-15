@@ -6,6 +6,12 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var r: Dictionary = Game.result
 	var won: bool = r.get("won", false)
+	Sfx.stop_loops()
+	Sfx.music("")
+	if won:
+		Sfx.play("win")
+	else:
+		Sfx.play("lose")
 	var reason: String = str(r.get("reason", ""))
 	var stats: Dictionary = r.get("stats", {})
 
@@ -109,4 +115,5 @@ func _label(text: String, font_size: int, color: Color, pos: Vector2, box: Vecto
 
 
 func _on_again() -> void:
+	Sfx.play("ui_click")
 	get_tree().change_scene_to_file("res://scenes/title.tscn")

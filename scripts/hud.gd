@@ -602,6 +602,7 @@ func set_hold(progress: float) -> void:
 func toast(text: String) -> void:
 	# a short message near the bottom that fades away by itself
 	toast_label.text = text
+	Sfx.play("toast")
 	toast_label.visible = true
 	toast_label.modulate.a = 1.0
 	toast_left = 3.2
@@ -609,6 +610,7 @@ func toast(text: String) -> void:
 
 func show_banner(title: String, text: String, seconds: float = 9.0) -> void:
 	banner_title.text = title
+	Sfx.banner(title)
 	banner_text.text = text
 	banner.visible = true
 	banner_left = seconds
@@ -616,6 +618,7 @@ func show_banner(title: String, text: String, seconds: float = 9.0) -> void:
 
 func show_dialog(speaker: String, text: String) -> void:
 	dialog_name.text = speaker
+	Sfx.play("blip")
 	dialog_text.text = text
 	dialog.visible = true
 
@@ -631,6 +634,7 @@ func set_weather(storm: float, flare: float) -> void:
 
 func flash_hurt() -> void:
 	hurt_alpha = 0.45
+	Sfx.play("metal_hit")
 	hurt_overlay.color.a = hurt_alpha
 	gauges.hurt = 0.6
 
@@ -638,6 +642,7 @@ func flash_hurt() -> void:
 func fade_in() -> void:
 	# a quick blink to black, used when you come out on the other side of the map
 	fade_alpha = 1.0
+	Sfx.play("whoosh")
 	fade_overlay.color.a = 1.0
 
 
@@ -651,6 +656,7 @@ func set_minimap(player_pos: Vector2, markers: Array, offline: bool) -> void:
 
 func show_choice(speaker: String, title: String, text: String, options: Array, selected: int) -> void:
 	choice_who.text = speaker
+	Sfx.play("chime")
 	choice_title.text = title
 	choice_text.text = text
 	for i in 2:
@@ -702,6 +708,7 @@ func _on_choice_button(index: int) -> void:
 
 func show_tour(title: String, text: String, step: int, total: int) -> void:
 	tour_title.text = title
+	Sfx.play("ui_click")
 	tour_text.text = text
 	tour_step.text = "%d / %d" % [step, total]
 	tour_root.visible = true
