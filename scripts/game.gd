@@ -2,6 +2,7 @@ extends Node
 # Autoload "Game": settings and data shared by every scene.
 
 const NasaData = preload("res://scripts/nasa_data.gd")
+const WorldData = preload("res://scripts/world_data.gd")
 
 # ---- Game length. One sol (a day on Mars) = DAY + DUSK + NIGHT + DAWN.
 # Change these numbers to make the game longer or shorter.
@@ -26,8 +27,13 @@ var paused := false          # true while a dialog is open: everything in the wo
 var shelter := false         # true at night and during storms: townspeople go home
 var player_pos := Vector2.ZERO
 
+# The uneven edge of the map (from world_data.gd). Nobody can walk or drive past it.
+var border := PackedVector2Array()
+
 
 func _ready() -> void:
+	for p in WorldData.BORDER:
+		border.append(p)
 	_add_action("move_left", [KEY_A, KEY_LEFT])
 	_add_action("move_right", [KEY_D, KEY_RIGHT])
 	_add_action("move_up", [KEY_W, KEY_UP])
@@ -42,6 +48,13 @@ func _add_action(action: String, keys: Array) -> void:
 		var ev := InputEventKey.new()
 		ev.physical_keycode = k
 		InputMap.action_add_event(action, ev)
+
+
+func inside_map(p: Vector2) -> bool:
+	# true when the point is on the ground you can walk on, inside the uneven edge
+	if border.size() < 3:
+		return true
+	return Geometry2D.is_point_in_polygon(p, border)
 
 
 func weather() -> Array:

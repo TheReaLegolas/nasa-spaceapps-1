@@ -9,6 +9,9 @@ const NpcScript = preload("res://scripts/npc.gd")
 const VehicleScript = preload("res://scripts/vehicle.gd")
 const HudScript = preload("res://scripts/hud.gd")
 const ActorScript = preload("res://scripts/actor.gd")
+const BorderScript = preload("res://scripts/border.gd")
+const DetailsScript = preload("res://scripts/details.gd")
+const FilmScript = preload("res://scripts/cutscenes.gd")
 
 # ---------------- balance numbers. Change these to tune the game.
 # Power is counted in "bolts": a solar panel makes 1 bolt, the oxygen machine uses 2, and
@@ -31,7 +34,7 @@ const CABLE_FACTOR := 0.5         # share of the energy that arrives while the p
 const STORM_SUN := 0.3            # how much sunlight gets through a dust storm
 const STORM_WIND := 2.0           # turbines spin faster in a storm
 const ROVER_USE := 0.10           # battery energy per second while driving a rover
-const BREATHING := 0.15           # oxygen the colonists breathe every second
+const BREATHING := 0.175          # oxygen the colonists breathe every second
 const OXY_MAKE := 0.21            # oxygen the oxygen machine makes every second
 const FARM_OXYGEN := 0.02         # the plants add a little oxygen while the grow lights are on
 const AIR_LEAK := 0.12            # oxygen lost every second through each hole in a home
@@ -51,12 +54,12 @@ const ORE_SECONDS := 480.0        # how long a miner needs to dig one ore (one o
 const ORE_MAX := 2                # the most ore one miner can hold
 const WARN_SECONDS := 40.0        # how early Mars News warns about storms
 const QUIET_DAYS := 2             # sols with no storm, flare or freezing night (side quests instead)
-const SIDE_QUESTS_PER_QUIET_DAY := 2
+const SIDE_QUESTS_PER_QUIET_DAY := 3
 const REPAIR_SECONDS := 2.4       # how long you hold E for a repair (uses 1 spare part)
 const PATCH_SECONDS := 1.6        # how long you hold E for a quick patch (when you have no spare parts)
 
 # ---------------- the story: the President is away for Game.TOTAL_SOLS sols
-const PRESIDENT := "President Aria"
+const PRESIDENT := "President Orion"
 const PAD_POS := Vector2(760, 790)          # where the rocket lands (bottom of the rocket)
 const PAD_VIEW := Vector2(760, 760)         # where the camera looks during the landing
 
@@ -103,6 +106,54 @@ const SIDE_QUESTS := {
 		"ask": "It is Engineer Mira's birthday! Please ask her which song I should play on Mars Radio. She is at the workshop.",
 		"thanks": "A birthday song? 'Happy Birthday', of course, but sung by the whole colony! Thank you. Take this charged battery pack: it gives you some energy.",
 		"task": "Ask Engineer Mira for her birthday song",
+		"parts": 0, "energy": 15,
+	},
+	"toolbox": {
+		"giver": "mira", "type": "find", "item": "toolbox", "item_name": "red toolbox",
+		"spots": [Vector2(3900, 3500), Vector2(4600, 2700), Vector2(5300, 2700)],
+		"ask": "Oh no. I put my red toolbox on the roof of a truck, and the truck drove away! It must have slid off on the road. I marked it on your map.",
+		"got": "You found the red toolbox. It rattles: every tool is still inside!",
+		"thanks": "My toolbox! I promise I will never use a truck as a table again. Take this spare part as a thank-you.",
+		"task": "Find Mira's red toolbox", "back": "Bring the toolbox back to Engineer Mira",
+		"parts": 1, "energy": 0,
+	},
+	"drone": {
+		"giver": "ada", "type": "find", "item": "drone", "item_name": "camera drone",
+		"spots": [Vector2(2100, 1700), Vector2(3900, 1700), Vector2(3000, 1300)],
+		"ask": "My camera drone was filming the town for Mars News, and then it ran out of battery and landed somewhere. Can you bring it back? I marked it on your map.",
+		"got": "You picked up the camera drone. Its little light blinks: 'thank you'.",
+		"thanks": "My drone! Tonight's news will have the best pictures ever. Take its spare battery pack: it gives you some energy.",
+		"task": "Find Ada's camera drone", "back": "Bring the drone back to Ada",
+		"parts": 0, "energy": 15,
+	},
+	"teddy": {
+		"giver": "sam", "type": "find", "item": "teddy", "item_name": "teddy bear",
+		"spots": [Vector2(2100, 3700), Vector2(3900, 3700), Vector2(3000, 2700)],
+		"ask": "A little girl left her teddy bear somewhere on her walk, and she cannot sleep without Captain Fluff. Can you find him? I marked it on your map.",
+		"got": "You found Captain Fluff the teddy bear. He looks brave, and a bit dusty.",
+		"thanks": "Captain Fluff is back! One very happy child will sleep well tonight. Her dad sends you this spare part.",
+		"task": "Find Captain Fluff the teddy bear", "back": "Bring the teddy bear back to Dr. Sam",
+		"parts": 1, "energy": 0,
+	},
+	"seeds": {
+		"giver": "tom", "type": "deliver", "to": "sam",
+		"ask": "Dr. Sam wants tomato plants for the clinic window. Green plants make people smile! Can you bring her these seeds? She is at the habitat dome.",
+		"thanks": "Tomato seeds! Looking after a plant is good for you, and tomatoes are too. Thank you! Here is a spare part I do not need.",
+		"task": "Bring Tom's tomato seeds to Dr. Sam",
+		"parts": 1, "energy": 0,
+	},
+	"card": {
+		"giver": "sam", "type": "deliver", "to": "rex",
+		"ask": "Miner Rex hurt his thumb yesterday. It is fine now, but the whole clinic signed a get-well card for him. Can you bring it to him at the mine?",
+		"thanks": "A card? For ME? With a drawing of my thumb! That is the nicest thing ever. Here, take this ore. It makes a spare part.",
+		"task": "Bring the get-well card to Miner Rex",
+		"parts": 1, "energy": 0,
+	},
+	"star": {
+		"giver": "leo", "type": "deliver", "to": "ada",
+		"ask": "Tell Ada something for tonight's news: from Mars, Earth looks like a bright star in the sky. NASA's Curiosity rover once took a photo of it!",
+		"thanks": "Earth is a star in OUR sky? I love it! That will be tonight's top story. Take this charged battery pack: it gives you some energy.",
+		"task": "Tell Ada about the Earth 'star'",
 		"parts": 0, "energy": 15,
 	},
 }
@@ -316,6 +367,27 @@ class ErrandItem extends Node2D:
 			_shape(_ellipse(21.0, 12.0), Color(0.78, 0.8, 0.85))
 			_shape(_ellipse(12.0, 6.0), Color(0.92, 0.93, 0.96), Vector2(0, -3))
 			_shape(_ellipse(3.5, 3.5, 10), Color(0.3, 0.7, 1.0), Vector2(0, -4))
+		elif kind == "toolbox":
+			_shape(PackedVector2Array([Vector2(-22, -8), Vector2(22, -8), Vector2(22, 12), Vector2(-22, 12)]), Color(0.45, 0.1, 0.1))
+			_shape(PackedVector2Array([Vector2(-19, -5), Vector2(19, -5), Vector2(19, 9), Vector2(-19, 9)]), Color(0.86, 0.22, 0.2))
+			_shape(PackedVector2Array([Vector2(-9, -16), Vector2(9, -16), Vector2(9, -8), Vector2(5, -8), Vector2(5, -12), Vector2(-5, -12), Vector2(-5, -8), Vector2(-9, -8)]), Color(0.3, 0.3, 0.34))
+			_shape(PackedVector2Array([Vector2(-4, -1), Vector2(4, -1), Vector2(4, 4), Vector2(-4, 4)]), Color(1.0, 0.85, 0.3))
+		elif kind == "drone":
+			for arm in [Vector2(-18, -8), Vector2(18, -8), Vector2(-18, 6), Vector2(18, 6)]:
+				_shape(_ellipse(9.0, 3.0, 10), Color(0.75, 0.8, 0.9), arm)
+			_shape(_ellipse(14.0, 9.0), Color(0.2, 0.22, 0.28))
+			_shape(_ellipse(11.0, 6.5), Color(0.92, 0.93, 0.96))
+			_shape(_ellipse(4.0, 4.0, 10), Color(0.15, 0.15, 0.2), Vector2(0, 2))
+			_shape(_ellipse(1.6, 1.6, 8), Color(1.0, 0.3, 0.3), Vector2(7, -3))
+		elif kind == "teddy":
+			_shape(_ellipse(7.0, 7.0, 10), Color(0.5, 0.32, 0.18), Vector2(-11, -19))
+			_shape(_ellipse(7.0, 7.0, 10), Color(0.5, 0.32, 0.18), Vector2(11, -19))
+			_shape(_ellipse(15.0, 13.0), Color(0.5, 0.32, 0.18), Vector2(0, 4))
+			_shape(_ellipse(13.0, 12.0), Color(0.68, 0.46, 0.27), Vector2(0, -10))
+			_shape(_ellipse(6.0, 4.5, 10), Color(0.9, 0.78, 0.6), Vector2(0, -6))
+			_shape(_ellipse(1.8, 1.8, 8), Color(0.1, 0.08, 0.08), Vector2(-5, -13))
+			_shape(_ellipse(1.8, 1.8, 8), Color(0.1, 0.08, 0.08), Vector2(5, -13))
+			_shape(_ellipse(8.0, 6.0, 10), Color(0.9, 0.78, 0.6), Vector2(0, 5))
 		else:
 			_shape(PackedVector2Array([Vector2(-20, 6), Vector2(-14, -12), Vector2(4, -17), Vector2(19, -5), Vector2(15, 10), Vector2(-6, 13)]), Color(0.3, 0.16, 0.4))
 			_shape(PackedVector2Array([Vector2(-16, 4), Vector2(-11, -9), Vector2(3, -13), Vector2(15, -4), Vector2(12, 7), Vector2(-5, 10)]), Color(0.66, 0.4, 0.9))
@@ -407,6 +479,9 @@ var hit_cooldown := 0.0
 
 var quests: Array = []            # problems the colony has right now
 var learn                         # the "explore and learn" mode (scripts/learn.gd)
+var details                       # benches, street lamps, hellos... (scripts/details.gd)
+var film                          # the opening scene, the party and the sad ending (scripts/cutscenes.gd)
+var towns: Array = []             # the townspeople who walk around (you cannot talk to them)
 var learned := {}                 # kinds of problem the player already knows how to fix
 
 var day_types: Array = []         # what kind of day each sol is: "start", "storm", "flare_day", ...
@@ -416,6 +491,7 @@ var errand_items: Array = []      # side-quest things lying on the ground
 
 # the ending: the President's rocket lands
 var cinematic := false
+var collapse_shown := false       # the sad-ending film has started (it only plays once)
 var cine_t := 0.0
 var cine_stage := ""
 var cine_cam_from := Vector2.ZERO
@@ -469,6 +545,12 @@ func _ready() -> void:
 	learn = LearnScript.new()
 	add_child(learn)
 	learn.setup(self)
+	details = DetailsScript.new()
+	add_child(details)
+	details.setup(self)
+	film = FilmScript.new()
+	add_child(film)
+	film.setup(self)
 	hud.choice_picked.connect(_choose)
 	hud.tour_skip.connect(_end_tour)
 	_schedule_events()
@@ -499,6 +581,9 @@ func _build_world() -> void:
 		g.position = tile[1]
 		g.z_index = -10
 		add_child(g)
+
+	# the dark highlands beyond the uneven edge of the map
+	add_child(BorderScript.new())
 
 	world = Node2D.new()
 	world.y_sort_enabled = true
@@ -560,14 +645,19 @@ func _build_world() -> void:
 		npc_by_id[n.npc_id] = n
 		miners.append(n)
 
-	# --- shopkeepers beside the market stalls (decoration: you cannot talk to them)
+	# --- shopkeepers beside the market stalls: they have no jobs for you, but they like a chat
+	var shop_i := 0
 	for entry in WorldData.VENDORS:
 		var n = NpcScript.new()
 		world.add_child(n)
-		n.setup_npc("", "", "vendor", str(entry[1]))
+		n.setup_npc("shop_%d" % shop_i, "", "vendor", str(entry[1]))
+		n.npc_name = "Shopkeeper"
 		n.position = entry[0]
 		n.solid = true
+		npcs.append(n)
+		npc_by_id[n.npc_id] = n
 		solids.append(n)
+		shop_i += 1
 
 	# --- townspeople
 	for entry in WorldData.TOWN:
@@ -575,6 +665,7 @@ func _build_world() -> void:
 		world.add_child(n)
 		n.setup_npc("", "", "town", str(entry[1]))
 		n.start_town(int(entry[0]))
+		towns.append(n)
 
 	# --- vehicles
 	for spot in WorldData.ROVER_SPOTS:
@@ -599,7 +690,6 @@ func _build_world() -> void:
 	player.position = WorldData.PLAYER_START
 	player.world_size = WorldData.WORLD_SIZE
 	player.solids = solids
-	player.on_wrap = _snap_camera
 	Game.player_pos = player.position
 
 	cam = Camera2D.new()
@@ -699,10 +789,16 @@ func _schedule_events() -> void:
 			# a quiet sol: side quests, and a breakdown in between
 			events.append(_event(s, day * rng.randf_range(0.4, 0.55), fault, 1))
 			for j in SIDE_QUESTS_PER_QUIET_DAY:
-				var side: Dictionary = _event(s, day * (0.12 + 0.55 * float(j)), "side", 0)
+				var side: Dictionary = _event(s, day * (0.1 + 0.3 * float(j)), "side", 0)
 				side["side"] = side_pool[side_i % side_pool.size()]
 				side_i += 1
 				events.append(side)
+		if kind == "cold" or kind == "flare_day":
+			# these sols have a calm morning, so there is time for one small favour too
+			var extra: Dictionary = _event(s, day * 0.12, "side", 0)
+			extra["side"] = side_pool[side_i % side_pool.size()]
+			side_i += 1
+			events.append(extra)
 
 
 func _event(on_sol: int, at: float, type: String, breaks: int) -> Dictionary:
@@ -727,17 +823,20 @@ func _start_sol(i: int) -> void:
 			today = cold_list[(weather_start + i) % cold_list.size()]
 
 	if i == 0:
-		_say(PRESIDENT, "Good morning, Operator! Big news: hundreds of new settlers are getting ready to move from Earth to our brand-new town, New Hope.")
-		_say(PRESIDENT, "I am flying to Earth to bring them here safely. The trip there and back takes %d sols. A 'sol' is a day on Mars, a little longer than a day on Earth." % Game.TOTAL_SOLS)
-		_say(PRESIDENT, "While I am away, YOU are in charge of New Hope. Keep the colony running until my rocket lands back on the rocket pad. I know you can do it!")
-		if Game.show_tour:
-			_say(PRESIDENT, "Before I go, let me show you around. Watch the screen: the camera will visit every machine.")
-			after_dialog.append(_start_tour)
-		else:
-			_say("Mission Control", "Watch your three bars: ENERGY, OXYGEN and FOOD. Walk to a machine and press E to switch it on or off. There is never enough power for everything, so every choice has a cost!")
-			after_dialog.append(_morning)
+		# the opening scene: the President talks to you and lifts off (scripts/cutscenes.gd)
+		film.start_intro()
 	else:
 		_morning()
+
+
+func _after_intro() -> void:
+	# the President has left: now the machine tour, or straight into the first morning
+	if Game.show_tour:
+		_say("Mission Control", "Operator, this is Mission Control. Before you start, let us look around New Hope. Watch the screen: the camera will visit every machine.")
+		after_dialog.append(_start_tour)
+	else:
+		_say("Mission Control", "Watch your three bars: ENERGY, OXYGEN and FOOD. Walk to a machine and press E to switch it on or off. There is never enough power for everything, so every choice has a cost!")
+		after_dialog.append(_morning)
 
 
 func _morning() -> void:
@@ -824,6 +923,11 @@ func _process(delta: float) -> void:
 	_update_sounds()
 	if game_over:
 		return
+	details.update(delta)
+	if film.active:
+		# the opening scene or the sad ending is playing: the game rules wait
+		film.update(delta)
+		return
 	if cinematic:
 		_update_arrival(delta)
 		return
@@ -839,7 +943,7 @@ func _process(delta: float) -> void:
 	if not Game.paused:
 		_drive(delta)
 		_simulate(delta)
-		if game_over or cinematic:
+		if game_over or cinematic or film.active:
 			return
 		_update_flying(delta)
 		_update_hold(delta)
@@ -852,7 +956,7 @@ func _process(delta: float) -> void:
 
 func _update_sounds() -> void:
 	# the sounds that keep going while something is happening
-	var live: bool = not game_over and not cinematic
+	var live: bool = not game_over and not cinematic and not film.active
 	var free: bool = live and not Game.paused
 	Sfx.loop("wind_loop", live and storm_left > 0.0)
 	Sfx.loop("geiger_loop", live and flare_left > 0.0)
@@ -1026,7 +1130,7 @@ func _simulate(delta: float) -> void:
 		stats["hunger"] += HUNGER_DAMAGE * delta
 		in_danger = true
 	if not in_danger:
-		health = minf(100.0, health + HEALTH_REGEN * delta)
+		health = minf(100.0, health + HEALTH_REGEN * details.rest_bonus() * delta)
 
 	# ---- miners dig ore while the drill works
 	if not drill.broken:
@@ -1904,16 +2008,9 @@ func _end_tour() -> void:
 	_morning()
 
 
-func _snap_camera() -> void:
-	# after coming out on the other side of the map: jump the camera there with a quick blink
-	cam.position = player.position + Vector2(0, -40)
-	cam.reset_smoothing()
-	hud.fade_in()
-
-
 func _dev_skip() -> void:
 	# testing shortcut (F9): jump to just before the next part of the day
-	if cinematic or touring or dialog_open or choice_open:
+	if cinematic or film.active or touring or dialog_open or choice_open:
 		return
 	var marks := [Game.DAY_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS, Game.DAY_SECONDS + Game.DUSK_SECONDS + Game.NIGHT_SECONDS, Game.SOL_SECONDS]
 	for m in marks:
@@ -1964,6 +2061,16 @@ func _npc_lines(npc) -> Array:
 	elif role == "miner":
 		lines.append("Still digging! Come back in a little while and I will have ore for you.")
 		lines.append("Ore is rock with metal inside. We turn it into spare parts for repairs and for building.")
+	elif role == "vendor":
+		var chat := [
+			"Fresh Mars potatoes! Well... they are the only vegetable we have. But they are fresh!",
+			"I sell hats. Nobody needs a hat inside a space helmet, but they do look great.",
+			"Today's special: potato soup. Yesterday's special: also potato soup.",
+			"Business is slow. Everyone on Mars already owns a potato.",
+			"You look tired, Operator. Sit on a bench for a while: a rest is good for you.",
+			"I heard the President is bringing new settlers. More customers! I am baking potato cake.",
+		]
+		lines.append(chat[rng.randi() % chat.size()])
 	elif role == "explorer":
 		lines = learn.idle_lines()
 	else:
@@ -1995,6 +2102,7 @@ func _update_flying(delta: float) -> void:
 			stats["debris"] += DEBRIS_HIT
 			hit_cooldown = 1.0
 			hold_target = null
+			details.stand()
 			player.knock = Vector2(signf(vel.x) * 260.0, 0.0)
 			hud.flash_hurt()
 			gone = true
@@ -2061,6 +2169,8 @@ func _exit_rover() -> void:
 func _spot_free(p: Vector2) -> bool:
 	if p.x < 40.0 or p.y < 110.0 or p.x > WorldData.WORLD_SIZE.x - 40.0 or p.y > WorldData.WORLD_SIZE.y - 30.0:
 		return false
+	if not Game.inside_map(p):
+		return false
 	for s in solids:
 		if not is_instance_valid(s):
 			continue
@@ -2089,10 +2199,6 @@ func _drive(delta: float) -> void:
 				energy = maxf(0.0, energy - ROVER_USE * delta)
 				stats["driven"] += delta
 	player.position = driving.position
-	if driving.wrapped:
-		# the rover left one end of the road and came back in at the other end
-		driving.wrapped = false
-		_snap_camera()
 
 
 # =====================================================================
@@ -2104,6 +2210,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if Game.DEV_KEYS and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_F9:
 		_dev_skip()
+		return
+	if film.active:
+		# a film: E or SPACE reads on, ESC skips to the end
+		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+			film.skip()
+		elif event.is_action_pressed("interact") and dialog_open:
+			_next_dialog()
 		return
 	if touring:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
@@ -2135,6 +2248,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if driving != null:
 		_exit_rover()
+		return
+	if details.sitting():
+		details.stand()
 		return
 	var t = _find_target()
 	if t == null:
@@ -2229,6 +2345,9 @@ func _action_for(t) -> Dictionary:
 			return _act("Hold E: build a wind turbine here (costs %d spare parts)" % TURBINE_COST, "hold", 3.0)
 		return _act("Empty plot: you need %d spare parts to build a wind turbine here" % TURBINE_COST, "none", 0.0)
 
+	if kind == "bench":
+		return _act("Press E: sit down and rest (health comes back faster while you sit)", "press", 0.0)
+
 	var fault: String = _fault_of(t)
 	if fault != "":
 		if not _knows_fix(fault):
@@ -2286,6 +2405,8 @@ func _do_press(t) -> void:
 		learn.pick_up()
 	elif t.what == "vehicle":
 		_enter_rover(t)
+	elif t.kind == "bench":
+		details.sit(t)
 	elif t.kind == "workshop":
 		energy -= WORKSHOP_COST
 		parts += 1
@@ -2539,12 +2660,16 @@ func _update_hud() -> void:
 			marks.append([v.position, "rover"])
 	hud.set_minimap(player.position, marks, antenna.broken)
 
-	if dialog_open or choice_open or touring:
+	if dialog_open or choice_open or touring or film.active:
 		hud.set_prompt("")
 		hud.set_hold(-1.0)
 		return
 	if driving != null:
 		hud.set_prompt("Press E: get out of the rover")
+		hud.set_hold(-1.0)
+		return
+	if details.sitting():
+		hud.set_prompt("Resting on the bench...   Press E or walk away to stand up")
 		hud.set_hold(-1.0)
 		return
 	var t = _find_target()
@@ -2583,12 +2708,19 @@ func _saved_progress(t) -> float:
 
 const ARRIVAL_PEOPLE := [
 	# who, sprite sheet, where they walk to, when they step out (seconds into the scene)
-	["president", "town2", Vector2(760, 905), 11.4],
-	["settler", "town1", Vector2(620, 870), 12.4],
-	["settler", "town4", Vector2(900, 870), 13.2],
-	["settler", "town5", Vector2(560, 950), 14.0],
-	["settler", "town6", Vector2(960, 950), 14.8],
-	["settler", "town3", Vector2(660, 990), 15.6],
+	["president", "president", Vector2(760, 912), 11.4],
+	["pilot", "town6", Vector2(846, 884), 12.1],
+	["settler", "town1", Vector2(640, 880), 12.8],
+	["settler", "town4", Vector2(900, 946), 13.4],
+	["settler", "town5", Vector2(560, 940), 14.0],
+	["settler", "town2", Vector2(960, 880), 14.6],
+	["settler", "town3", Vector2(660, 972), 15.2],
+	["settler", "farmer", Vector2(1020, 946), 15.8],
+	["settler", "town1", Vector2(520, 880), 16.4],
+	["settler", "town5", Vector2(860, 1000), 17.0],
+	["settler", "town4", Vector2(600, 1010), 17.6],
+	["settler", "town3", Vector2(1000, 1012), 18.2],
+	["settler", "town2", Vector2(530, 1012), 18.8],
 ]
 
 
@@ -2612,6 +2744,7 @@ func _start_arrival() -> void:
 	decisions.clear()
 	if driving != null:
 		_exit_rover()
+	details.stand()
 	Game.paused = false
 	Game.shelter = false              # everyone comes outside to see the rocket
 	# the player waits at the edge of the rocket pad, looking up at the sky
@@ -2715,14 +2848,19 @@ func _update_arrival(delta: float) -> void:
 		if all_there:
 			cine_stage = "talk"
 			hud.set_caption("")
-			var settlers: int = arrivals.size() - 1
-			_say(PRESIDENT, "Operator, we are home! And look: %d new families came with me, with many more on the next rockets." % settlers)
+			var settlers: int = arrivals.size() - 2      # everyone except the President and the pilot
+			_say(PRESIDENT, "Operator, we are home! And look: %d new settlers came with me, with many more on the next rockets." % settlers)
 			_say(PRESIDENT, "For %d sols you kept New Hope running all by yourself, and every choice had a cost. You chose well." % Game.TOTAL_SOLS)
 			_say(PRESIDENT, "I knew you could do it! Welcome to the team, Operator.")
 			_say("New settlers", "Hello, New Hope! Thank you for keeping our new home safe!")
 	elif cine_stage == "talk" and not dialog_open:
-		cine_stage = "done"
-		_finish(true, "")
+		# and now: the welcome party (scripts/cutscenes.gd)
+		cine_stage = "party"
+		film.start_party()
+	elif cine_stage == "party":
+		if film.update_party(delta):
+			cine_stage = "done"
+			_finish(true, "")
 
 
 func _spawn_arrivals() -> void:
@@ -2774,6 +2912,11 @@ func _update_dust(delta: float) -> void:
 # =====================================================================
 
 func _finish(won: bool, reason: String) -> void:
+	if not won and not collapse_shown:
+		# show what happens to the colony first; the film calls _finish again when it is over
+		collapse_shown = true
+		_start_collapse(reason)
+		return
 	game_over = true
 	Sfx.stop_loops()
 	Game.paused = false
@@ -2805,3 +2948,37 @@ func _finish(won: bool, reason: String) -> void:
 		"stats": stats,
 	}
 	get_tree().change_scene_to_file("res://scenes/end.tscn")
+
+
+func _start_collapse(reason: String) -> void:
+	# clear the screen and hand over to the sad-ending film (scripts/cutscenes.gd)
+	storm_left = 0.0
+	flare_left = 0.0
+	for piece in flying:
+		piece["node"].queue_free()
+	flying.clear()
+	hold_target = null
+	dialog_queue.clear()
+	after_dialog.clear()
+	dialog_open = false
+	hud.hide_dialog()
+	choice_open = false
+	hud.hide_choice()
+	decisions.clear()
+	if touring:
+		touring = false
+		hud.hide_tour()
+	if driving != null:
+		_exit_rover()
+	details.stand()
+	Game.paused = false
+	learn.hide_ui()
+	# say what hurt the colony the most, like the end screen does
+	var why: String = reason
+	if reason == "health":
+		var worst := 0.0
+		for key in ["hunger", "cold", "radiation", "debris"]:
+			if float(stats[key]) > worst:
+				worst = float(stats[key])
+				why = str(key)
+	film.start_collapse(why, _finish.bind(false, reason))

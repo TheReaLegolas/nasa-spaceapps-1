@@ -13,7 +13,7 @@ const DIR := "res://assets/sounds/"
 const VOLUME := {
 	"ui_click": -6.0, "ui_select": -8.0, "ui_move": -8.0, "ui_confirm": -8.0,
 	"blip": -12.0, "paper": -4.0, "paper_flip": -6.0, "chime": -8.0, "news": -12.0,
-	"toast": -14.0, "coin": -8.0, "success": -8.0, "step": -20.0, "whoosh": -8.0,
+	"toast": -14.0, "coin": -8.0, "success": -8.0, "step": -30.0, "whoosh": -8.0,
 	"switch_on": -6.0, "switch_off": -6.0, "power_down": -8.0, "workshop": -8.0,
 	"tape": -6.0, "metal_hit": -4.0, "impact": -3.0, "breakdown": -10.0, "spark": -8.0,
 	"air_leak": -6.0, "gust": -6.0, "alarm": -14.0, "shield": -8.0, "warn": -12.0,

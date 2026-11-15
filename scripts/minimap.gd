@@ -2,6 +2,8 @@ extends Control
 # The small map in the corner. The picture is drawn ahead of time
 # (assets/ground/minimap.png); this script adds the area names and the moving marks.
 
+const BorderScript = preload("res://scripts/border.gd")
+
 # The roads cut the map into 9 areas. Each one gets a short name so children
 # can see at a glance what is where. [left, top, width, height] in minimap pixels.
 const AREAS := [
@@ -70,6 +72,7 @@ func _draw() -> void:
 			draw_rect(Rect2(0.0, y, size.x, 2.0), Color(1, 1, 1, 0.07))
 	else:
 		_draw_empty_pad()
+		_draw_outside()
 		_draw_area_names()
 
 	# rovers first, then problems, then people with a "!", so the "!" is always on top
@@ -92,6 +95,21 @@ func _draw_empty_pad() -> void:
 	draw_arc(PAD_CENTER, 7.0, 0.0, TAU, 24, Color(0.93, 0.93, 0.96), 1.0)
 	draw_rect(Rect2(PAD_CENTER.x - 4.0, PAD_CENTER.y - 0.5, 8.0, 1.5), Color(0.93, 0.93, 0.96))
 	draw_rect(Rect2(PAD_CENTER.x - 0.5, PAD_CENTER.y - 4.0, 1.5, 8.0), Color(0.93, 0.93, 0.96))
+
+
+func _draw_outside() -> void:
+	# the land beyond the uneven edge of the map, where nobody can go
+	if Game.border.size() < 3:
+		return
+	var small := PackedVector2Array()
+	for p in Game.border:
+		small.append(p / map_scale)
+	for piece in BorderScript.outside_pieces(small, size, 0.0):
+		var poly: PackedVector2Array = piece
+		draw_colored_polygon(poly, Color(0.27, 0.13, 0.1))
+	var line := PackedVector2Array(small)
+	line.append(small[0])
+	draw_polyline(line, Color(0.17, 0.07, 0.06), 1.5)
 
 
 func _draw_area_names() -> void:

@@ -3,6 +3,8 @@ extends Node2D
 # an empty building plot, a rock, a lamp...
 # The node's position is where the thing touches the ground (bottom-centre of the picture).
 
+const WorldData = preload("res://scripts/world_data.gd")
+
 var what := "thing"
 var tid := ""                  # its name in world_data.gd, for example "oxygen"
 # kind is one of: "panel", "turbine", "plot_solar", "plot_wind", "battery", "relay", "oxygen",
@@ -10,6 +12,9 @@ var tid := ""                  # its name in world_data.gd, for example "oxygen"
 var kind := ""
 var title := ""
 var col := Rect2()             # the box that blocks the player (world pixels)
+# The real outline that blocks the player: the picture's own shape, cut to the "col" box.
+# A round dome gets a round outline. Empty means: just use the box.
+var shape := PackedVector2Array()
 var solid := true
 var built := true              # false for an empty plot
 
@@ -113,6 +118,38 @@ func set_art(asset: String) -> void:
 	var named: bool = title != "" and kind != "panel" and kind != "turbine" and kind != "plot_solar" and kind != "plot_wind"
 	name_label.text = title
 	name_label.visible = named
+	_make_shape(asset)
+
+
+func _make_shape(asset: String) -> void:
+	# the outline of the picture (traced in world_data.gd), cut to the "col" box
+	shape = PackedVector2Array()
+	if not WorldData.HULLS.has(asset):
+		return
+	var outline := PackedVector2Array()
+	for p in WorldData.HULLS[asset]:
+		var point: Vector2 = p
+		outline.append(position + point)
+	var box := PackedVector2Array([col.position, Vector2(col.end.x, col.position.y), col.end, Vector2(col.position.x, col.end.y)])
+	var best_area := 0.0
+	for piece in Geometry2D.intersect_polygons(outline, box):
+		var poly: PackedVector2Array = piece
+		var area := 0.0
+		for i in poly.size():
+			var a: Vector2 = poly[i]
+			var b: Vector2 = poly[(i + 1) % poly.size()]
+			area += a.x * b.y - b.x * a.y
+		area = absf(area) / 2.0
+		if area > best_area:
+			best_area = area
+			shape = poly
+	# a sliver is no use: keep the plain box
+	if best_area < col.get_area() * 0.25:
+		shape = PackedVector2Array()
+
+
+func get_shape() -> PackedVector2Array:
+	return shape
 
 
 func convert_to(new_kind: String, asset: String, new_title: String, new_col: Rect2) -> void:
@@ -132,7 +169,15 @@ func get_col() -> Rect2:
 
 
 func dist_to(p: Vector2) -> float:
-	# distance from a point to this thing's box (0 when inside)
+	# distance from a point to this thing's outline (0 when inside)
+	if shape.size() >= 3:
+		if Geometry2D.is_point_in_polygon(p, shape):
+			return 0.0
+		var best := 999999.0
+		for i in shape.size():
+			var q: Vector2 = Geometry2D.get_closest_point_to_segment(p, shape[i], shape[(i + 1) % shape.size()])
+			best = minf(best, p.distance_to(q))
+		return best
 	var dx: float = maxf(maxf(col.position.x - p.x, p.x - col.end.x), 0.0)
 	var dy: float = maxf(maxf(col.position.y - p.y, p.y - col.end.y), 0.0)
 	return sqrt(dx * dx + dy * dy)

@@ -278,7 +278,10 @@ var hurt_overlay: ColorRect
 var fade_overlay: ColorRect
 var hurt_alpha := 0.0
 var fade_alpha := 0.0
-var caption: Label             # the line of text at the top during the ending
+var caption: Label             # the line of text at the top during a film
+var hint: Label                # small text in the bottom movie bar
+var cine_parts: Array = []     # the movie bars and texts of the film that is playing
+var cine_hidden: Array = []    # what was on the screen before the film started
 
 
 func _ready() -> void:
@@ -640,7 +643,7 @@ func flash_hurt() -> void:
 
 
 func fade_in() -> void:
-	# a quick blink to black, used when you come out on the other side of the map
+	# a quick blink to black, used when a film starts or ends
 	fade_alpha = 1.0
 	Sfx.play("whoosh")
 	fade_overlay.color.a = 1.0
@@ -731,9 +734,14 @@ func _on_tour_skip() -> void:
 # ---- the ending
 
 func start_cinematic() -> void:
-	# hide the game screen, add black movie bars and a caption line
+	# hide the game screen, add black movie bars, a caption line and a small hint
+	if not cine_parts.is_empty():
+		return
 	for c in get_children():
-		if c != dialog:
+		if c == dialog or c == fade_overlay:
+			continue
+		if c.visible:
+			cine_hidden.append(c)
 			c.visible = false
 	var top := ColorRect.new()
 	top.color = Color(0, 0, 0)
@@ -756,6 +764,36 @@ func start_cinematic() -> void:
 	caption.add_theme_color_override("font_color", Color(1.0, 0.9, 0.6))
 	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(caption)
+	move_child(caption, 2)
+	hint = Label.new()
+	hint.position = Vector2(0, 688)
+	hint.size = Vector2(1264, 24)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	hint.add_theme_font_size_override("font_size", 15)
+	hint.add_theme_color_override("font_color", Color(0.7, 0.7, 0.72))
+	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(hint)
+	move_child(hint, 2)
+	cine_parts = [top, bottom, caption, hint]
+
+
+func end_cinematic() -> void:
+	# the film is over: take the movie bars away and show the game screen again
+	for c in cine_parts:
+		c.queue_free()
+	cine_parts.clear()
+	caption = null
+	hint = null
+	for c in cine_hidden:
+		if is_instance_valid(c):
+			c.visible = true
+	cine_hidden.clear()
+
+
+func set_hint(text: String) -> void:
+	# small grey text in the bottom movie bar (for example "ESC: skip the film")
+	if hint != null:
+		hint.text = text
 
 
 func set_caption(text: String) -> void:
