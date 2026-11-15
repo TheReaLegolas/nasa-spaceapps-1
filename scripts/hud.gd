@@ -508,6 +508,7 @@ func _build_tour() -> void:
 	skip.size = Vector2(190, 30)
 	skip.add_theme_font_size_override("font_size", 14)
 	skip.focus_mode = Control.FOCUS_NONE
+	skip.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	skip.pressed.connect(_on_tour_skip)
 	box.add_child(skip)
 

@@ -531,6 +531,7 @@ func _build_ui() -> void:
 	button.size = icon.size
 	button.focus_mode = Control.FOCUS_NONE
 	button.tooltip_text = "Discovery Notebook (N)"
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	var none := StyleBoxEmpty.new()
 	for state_name in ["normal", "hover", "pressed", "focus", "disabled"]:
 		button.add_theme_stylebox_override(state_name, none)
