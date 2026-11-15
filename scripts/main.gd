@@ -2216,13 +2216,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 			film.skip()
 		elif event.is_action_pressed("interact") and dialog_open:
-			_next_dialog()
+			_advance_dialog()
 		return
 	if touring:
 		if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
 			_end_tour()
 		elif event.is_action_pressed("interact"):
-			if tour_t < 1.0:
+			if hud.tour_typing():
+				hud.finish_tour_typing()
+			elif tour_t < 1.0:
 				tour_t = 1.0
 			else:
 				_tour_next()
@@ -2241,10 +2243,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if cinematic:
 		if dialog_open:
-			_next_dialog()
+			_advance_dialog()
 		return
 	if dialog_open:
-		_next_dialog()
+		_advance_dialog()
 		return
 	if driving != null:
 		_exit_rover()
@@ -2532,6 +2534,13 @@ func _say(speaker: String, text: String) -> void:
 	dialog_queue.append([speaker, text])
 	if not dialog_open:
 		_next_dialog()
+
+
+func _advance_dialog() -> void:
+	if hud.is_typing():
+		hud.finish_typing()
+		return
+	_next_dialog()
 
 
 func _next_dialog() -> void:

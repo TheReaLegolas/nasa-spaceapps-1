@@ -7,6 +7,81 @@ signal tour_skip
 
 const MinimapScript = preload("res://scripts/minimap.gd")
 const GOLD := Color(1.0, 0.85, 0.5)
+const TYPE_SPEED := 45.0
+const DIALOG_POS := Vector2(190, 500)
+
+
+class Typer extends RefCounted:
+	var label: Label
+	var text := ""
+	var shown := 0
+	var wait := 0.0
+	var letters := 0
+
+	func start(p_label: Label, p_text: String) -> void:
+		label = p_label
+		text = p_text
+		label.text = p_text
+		shown = 0
+		wait = 0.0
+		letters = 0
+		label.visible_characters = 0
+
+	func typing() -> bool:
+		return label != null and shown < text.length()
+
+	func finish() -> void:
+		if label == null:
+			return
+		shown = text.length()
+		label.visible_characters = -1
+
+	func step(delta: float, speed: float) -> bool:
+		if not typing():
+			return false
+		if speed <= 0.0:
+			finish()
+			return false
+		var blip := false
+		wait -= delta
+		while wait <= 0.0 and shown < text.length():
+			var c: String = text[shown]
+			shown += 1
+			wait += 1.0 / speed
+			var next := " "
+			if shown < text.length():
+				next = text[shown]
+			if ".!?".contains(c) and (next == " " or next == "\n"):
+				wait += 0.25
+			elif c == "," and next == " ":
+				wait += 0.1
+			if c != " " and c != "\n":
+				letters += 1
+				if letters % 3 == 1:
+					blip = true
+		if shown >= text.length():
+			label.visible_characters = -1
+		else:
+			label.visible_characters = shown
+		return blip
+
+
+class NextMarker extends Control:
+	var t := 0.0
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		size = Vector2(18, 16)
+
+	func _process(delta: float) -> void:
+		if visible:
+			t += delta
+			queue_redraw()
+
+	func _draw() -> void:
+		var y: float = 3.0 + sin(t * 6.0) * 3.0
+		var tri := PackedVector2Array([Vector2(1, y), Vector2(17, y), Vector2(9, y + 10)])
+		draw_colored_polygon(tri, Color(1.0, 0.85, 0.5))
 
 
 # ---------------------------------------------------------------- the drawn gauges
@@ -256,6 +331,11 @@ var banner_left := 0.0
 var dialog: Panel
 var dialog_name: Label
 var dialog_text: Label
+var dialog_marker: NextMarker
+var dialog_typer := Typer.new()
+var dialog_active := false
+var dialog_tween: Tween
+var tour_typer := Typer.new()
 
 var choice_root: Control
 var choice_who: Label
@@ -286,6 +366,7 @@ var cine_hidden: Array = []    # what was on the screen before the film started
 
 func _ready() -> void:
 	layer = 10
+	process_mode = Node.PROCESS_MODE_ALWAYS
 
 	storm_overlay = _overlay(Color(0.85, 0.45, 0.2, 0.0))
 	flare_overlay = _overlay(Color(0.7, 0.3, 0.9, 0.0))
@@ -363,13 +444,17 @@ func _ready() -> void:
 	add_child(hold_bar)
 
 	# ---- dialog box
-	dialog = _panel(Vector2(190, 500), Vector2(900, 190), Color(0.06, 0.07, 0.12, 0.96), Color(1, 1, 1, 0.8), 2, 12)
+	dialog = _panel(DIALOG_POS, Vector2(900, 190), Color(0.06, 0.07, 0.12, 0.96), Color(1, 1, 1, 0.8), 2, 12)
 	dialog_name = _text(dialog, "", 22, GOLD, Vector2(20, 10), Vector2(860, 30))
 	dialog_text = _text(dialog, "", 20, Color(1, 1, 1), Vector2(20, 42), Vector2(860, 116))
 	dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialog_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	var hint := _text(dialog, "SPACE or E to continue", 15, Color(0.75, 0.75, 0.75), Vector2(20, 160), Vector2(860, 22))
+	var hint := _text(dialog, "SPACE or E to continue", 15, Color(0.75, 0.75, 0.75), Vector2(20, 160), Vector2(830, 22))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	dialog_marker = NextMarker.new()
+	dialog_marker.position = Vector2(860, 163)
+	dialog_marker.visible = false
+	dialog.add_child(dialog_marker)
 	dialog.visible = false
 
 	_build_tour()
@@ -473,6 +558,11 @@ func _build_choice() -> void:
 
 
 func _process(delta: float) -> void:
+	if dialog_typer.step(delta, TYPE_SPEED) and dialog_active:
+		Sfx.play("blip", randf_range(0.95, 1.08))
+	dialog_marker.visible = dialog_active and not dialog_typer.typing()
+	if tour_typer.step(delta, TYPE_SPEED) and tour_root.visible:
+		Sfx.play("blip", randf_range(0.95, 1.08))
 	if banner_left > 0.0:
 		banner_left -= delta
 		if banner_left <= 0.0:
@@ -619,15 +709,51 @@ func show_banner(title: String, text: String, seconds: float = 9.0) -> void:
 	banner_left = seconds
 
 
+func _kill(tw: Tween) -> void:
+	if tw != null and tw.is_valid():
+		tw.kill()
+
+
 func show_dialog(speaker: String, text: String) -> void:
 	dialog_name.text = speaker
-	Sfx.play("blip")
-	dialog_text.text = text
+	dialog_typer.start(dialog_text, text)
+	if dialog_active:
+		return
+	dialog_active = true
+	_kill(dialog_tween)
 	dialog.visible = true
+	dialog.modulate.a = 0.0
+	dialog.position = DIALOG_POS + Vector2(0, 12)
+	dialog_tween = create_tween().set_parallel(true)
+	dialog_tween.tween_property(dialog, "modulate:a", 1.0, 0.15)
+	dialog_tween.tween_property(dialog, "position", DIALOG_POS, 0.15).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func hide_dialog() -> void:
-	dialog.visible = false
+	dialog_typer.finish()
+	if not dialog_active:
+		return
+	dialog_active = false
+	_kill(dialog_tween)
+	dialog_tween = create_tween()
+	dialog_tween.tween_property(dialog, "modulate:a", 0.0, 0.1)
+	dialog_tween.tween_callback(dialog.hide)
+
+
+func is_typing() -> bool:
+	return dialog_active and dialog_typer.typing()
+
+
+func finish_typing() -> void:
+	dialog_typer.finish()
+
+
+func tour_typing() -> bool:
+	return tour_root.visible and tour_typer.typing()
+
+
+func finish_tour_typing() -> void:
+	tour_typer.finish()
 
 
 func set_weather(storm: float, flare: float) -> void:
@@ -712,7 +838,7 @@ func _on_choice_button(index: int) -> void:
 func show_tour(title: String, text: String, step: int, total: int) -> void:
 	tour_title.text = title
 	Sfx.play("ui_click")
-	tour_text.text = text
+	tour_typer.start(tour_text, text)
 	tour_step.text = "%d / %d" % [step, total]
 	tour_root.visible = true
 	tour_arrow.show_arrow = false
@@ -724,6 +850,7 @@ func set_tour_target(screen_pos: Vector2, show_arrow: bool) -> void:
 
 
 func hide_tour() -> void:
+	tour_typer.finish()
 	tour_root.visible = false
 
 
