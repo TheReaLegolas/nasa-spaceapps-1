@@ -27,6 +27,7 @@ const VOLUME := {
 var enabled := true
 var streams := {}
 var pool: Array = []           # players for short sounds
+var pool_started: Array = []
 var loops := {}                # name -> player, for the sounds that repeat
 var music_player: AudioStreamPlayer
 var music_old: AudioStreamPlayer
@@ -41,6 +42,7 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		pool.append(p)
+		pool_started.append(0.0)
 	music_player = AudioStreamPlayer.new()
 	add_child(music_player)
 	music_old = AudioStreamPlayer.new()
@@ -72,11 +74,18 @@ func play(sound: String, pitch: float = 1.0, extra_db: float = 0.0) -> void:
 	if now - float(last_played.get(sound, -9.0)) < 0.06:
 		return
 	last_played[sound] = now
-	var free_player: AudioStreamPlayer = pool[0]
-	for p in pool:
-		if not p.playing:
-			free_player = p
+	var pick := -1
+	for i in pool.size():
+		if not pool[i].playing:
+			pick = i
 			break
+	if pick < 0:
+		pick = 0
+		for i in pool.size():
+			if float(pool_started[i]) < float(pool_started[pick]):
+				pick = i
+	pool_started[pick] = now
+	var free_player: AudioStreamPlayer = pool[pick]
 	free_player.stream = s
 	free_player.volume_db = _db(sound) + extra_db
 	free_player.pitch_scale = pitch
