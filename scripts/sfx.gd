@@ -29,7 +29,9 @@ var streams := {}
 var pool: Array = []           # players for short sounds
 var loops := {}                # name -> player, for the sounds that repeat
 var music_player: AudioStreamPlayer
+var music_old: AudioStreamPlayer
 var music_name := ""
+var music_tweens: Array = []
 var last_played := {}          # name -> time, so one sound never plays twice in the same moment
 
 
@@ -41,6 +43,8 @@ func _ready() -> void:
 		pool.append(p)
 	music_player = AudioStreamPlayer.new()
 	add_child(music_player)
+	music_old = AudioStreamPlayer.new()
+	add_child(music_old)
 
 
 func _stream(sound: String) -> AudioStream:
@@ -108,15 +112,34 @@ func music(sound: String) -> void:
 	if sound == music_name:
 		return
 	music_name = sound
+	for tw in music_tweens:
+		if tw.is_valid():
+			tw.kill()
+	music_tweens.clear()
+	var leaving: AudioStreamPlayer = music_player
+	music_player = music_old
+	music_old = leaving
 	music_player.stop()
+	if leaving.playing:
+		var out := create_tween()
+		out.tween_method(_fade.bind(leaving, leaving.volume_db), 1.0, 0.0, 1.0)
+		out.tween_callback(leaving.stop)
+		music_tweens.append(out)
 	if sound == "" or not enabled:
 		return
 	var s: AudioStream = _stream(sound)
 	if s == null:
 		return
 	music_player.stream = s
-	music_player.volume_db = _db(sound)
+	_fade(0.0, music_player, _db(sound))
 	music_player.play()
+	var fade_in := create_tween()
+	fade_in.tween_method(_fade.bind(music_player, _db(sound)), 0.0, 1.0, 1.0)
+	music_tweens.append(fade_in)
+
+
+func _fade(k: float, player: AudioStreamPlayer, full_db: float) -> void:
+	player.volume_db = full_db + linear_to_db(maxf(k, 0.001))
 
 
 func banner(title: String) -> void:
