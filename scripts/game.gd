@@ -18,6 +18,11 @@ const TOTAL_SOLS := 7         # the President is away for 7 sols
 # and for showing the game quickly. Set this to false to switch the shortcut off.
 const DEV_KEYS := true
 
+const KEYS := "Click / SPACE"
+const KEYS_HOLD := "Hold click / SPACE"
+const KEYS_SAY := "click or press SPACE"
+const KEYS_HOLD_SAY := "hold the mouse button or SPACE"
+
 var character := "girl"      # "girl" or "boy"
 var show_tour := true        # the machine tour at the start of a game (the title screen can switch it off)
 var result := {}             # filled in when a game ends, read by the end screen
@@ -38,16 +43,33 @@ func _ready() -> void:
 	_add_action("move_right", [KEY_D, KEY_RIGHT])
 	_add_action("move_up", [KEY_W, KEY_UP])
 	_add_action("move_down", [KEY_S, KEY_DOWN])
-	_add_action("interact", [KEY_E, KEY_SPACE])
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	_add_action("interact", [KEY_E, KEY_SPACE, click])
 
 
 func _add_action(action: String, keys: Array) -> void:
 	if not InputMap.has_action(action):
 		InputMap.add_action(action)
 	for k in keys:
-		var ev := InputEventKey.new()
-		ev.physical_keycode = k
-		InputMap.action_add_event(action, ev)
+		if k is InputEvent:
+			InputMap.action_add_event(action, k)
+		else:
+			var ev := InputEventKey.new()
+			ev.physical_keycode = k
+			InputMap.action_add_event(action, ev)
+
+
+func press_text(what: String) -> String:
+	return "%s: %s" % [KEYS, what]
+
+
+func hold_text(what: String) -> String:
+	return "%s: %s" % [KEYS_HOLD, what]
+
+
+func keys_fill(text: String) -> String:
+	return text.replace("{press}", KEYS_SAY).replace("{hold}", KEYS_HOLD_SAY)
 
 
 func inside_map(p: Vector2) -> bool:

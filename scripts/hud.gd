@@ -454,7 +454,7 @@ func _ready() -> void:
 	dialog_text = _text(dialog, "", 20, Color(1, 1, 1), Vector2(20, 42), Vector2(860, 116))
 	dialog_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	dialog_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	var hint := _text(dialog, "SPACE or E to continue", 15, Color(0.75, 0.75, 0.75), Vector2(20, 160), Vector2(830, 22))
+	var hint := _text(dialog, "%s to continue" % Game.KEYS, 15, Color(0.75, 0.75, 0.75), Vector2(20, 160), Vector2(830, 22))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	dialog_marker = NextMarker.new()
 	dialog_marker.position = Vector2(860, 163)
@@ -489,7 +489,7 @@ func _build_tour() -> void:
 	tour_text = _text(box, "", 20, Color(1, 1, 1), Vector2(22, 46), Vector2(896, 84))
 	tour_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	tour_text.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	var next_hint := _text(box, "SPACE or E: next", 16, Color(0.8, 0.95, 0.8), Vector2(22, 134), Vector2(896, 24))
+	var next_hint := _text(box, "%s: next" % Game.KEYS, 16, Color(0.8, 0.95, 0.8), Vector2(22, 134), Vector2(896, 24))
 	next_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	var skip := Button.new()
 	skip.text = "Skip the tour (ESC)"
@@ -560,7 +560,7 @@ func _build_choice() -> void:
 		choice_cards.append(opt)
 		choice_labels.append(lab)
 		choice_details.append(det)
-	var how := _text(card, "A / D or the arrow keys: choose          E or SPACE: decide", 16, Color(0.75, 0.78, 0.85), Vector2(28, 476), Vector2(884, 26))
+	var how := _text(card, "A / D or the arrow keys: choose          %s: decide" % Game.KEYS, 16, Color(0.75, 0.78, 0.85), Vector2(28, 476), Vector2(884, 26))
 	how.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
@@ -701,7 +701,7 @@ func set_hold(progress: float) -> void:
 
 func toast(text: String) -> void:
 	# a short message near the bottom that fades away by itself
-	toast_label.text = text
+	toast_label.text = Game.keys_fill(text)
 	Sfx.play("toast")
 	toast_label.visible = true
 	toast_label.modulate.a = 1.0
@@ -711,7 +711,7 @@ func toast(text: String) -> void:
 func show_banner(title: String, text: String, seconds: float = 9.0) -> void:
 	banner_title.text = title
 	Sfx.banner(title)
-	banner_text.text = text
+	banner_text.text = Game.keys_fill(text)
 	banner_left = seconds
 	if banner_active:
 		return
@@ -741,7 +741,7 @@ func _kill(tw: Tween) -> void:
 
 func show_dialog(speaker: String, text: String) -> void:
 	dialog_name.text = speaker
-	dialog_typer.start(dialog_text, text)
+	dialog_typer.start(dialog_text, Game.keys_fill(text))
 	if dialog_active:
 		return
 	dialog_active = true
@@ -872,7 +872,7 @@ func _on_choice_button(index: int) -> void:
 func show_tour(title: String, text: String, step: int, total: int) -> void:
 	tour_title.text = title
 	Sfx.play("ui_click")
-	tour_typer.start(tour_text, text)
+	tour_typer.start(tour_text, Game.keys_fill(text))
 	tour_step.text = "%d / %d" % [step, total]
 	tour_root.visible = true
 	tour_arrow.show_arrow = false

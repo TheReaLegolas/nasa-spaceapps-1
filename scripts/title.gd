@@ -52,7 +52,7 @@ func _ready() -> void:
 	tour.toggled.connect(_on_tour_toggled)
 	add_child(tour)
 
-	var help := _label("Move: arrow keys or W A S D        Use / talk / repair / drive: E or SPACE", 20, Color(0.85, 0.85, 0.85))
+	var help := _label("Move: arrow keys or W A S D        Use / talk / repair / drive: %s" % Game.KEYS, 20, Color(0.85, 0.85, 0.85))
 	help.position = Vector2(0, 596)
 	help.size = Vector2(1280, 30)
 	add_child(help)

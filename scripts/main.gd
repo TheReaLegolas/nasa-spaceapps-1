@@ -239,13 +239,13 @@ const TOUR := [
 	{"pos": Vector2(4900, 2490), "title": "RADIATION SHIELD",
 		"text": "When the Sun sends a solar flare, this shield protects everyone. It uses a lot: 3 bolts. Switch it ON only when a flare hits."},
 	{"pos": Vector2(4940, 800), "title": "THE MINE",
-		"text": "The miners dig up ore. Walk to a miner and press E to collect it. Every ore becomes 1 spare part."},
+		"text": "The miners dig up ore. Walk to a miner and {press} to collect it. Every ore becomes 1 spare part."},
 	{"pos": Vector2(4700, 3300), "title": "WORKSHOP",
 		"text": "No ore? The workshop can build a spare part, but each one costs 25 energy. Spare parts repair machines and build new ones."},
 	{"pos": Vector2(1460, 1880), "title": "EMPTY PLOTS",
 		"text": "Build here! A new solar panel costs 3 spare parts. A wind turbine costs 4, but it also works at night."},
 	{"pos": Vector2(3560, 1850), "title": "ANTENNA",
-		"text": "It sends the map picture and the storm warnings of Mars News. Rovers are parked by the roads: press E to drive one."},
+		"text": "It sends the map picture and the storm warnings of Mars News. Rovers are parked by the roads: {press} to drive one."},
 	{"pos": Vector2(760, 760), "title": "ROCKET PAD",
 		"text": "The President's rocket will land here in {sols} sols with the new settlers. Keep New Hope running until then!"},
 	{"title": "EVERY CHOICE HAS A COST",
@@ -272,31 +272,31 @@ const FAULTS := {
 		"reporter": "nova", "expert": "nova", "also": "dust",
 		"where": "The solar field is west of the town.",
 		"report": "Some of our solar panels are broken! A broken panel makes no energy at all.",
-		"how": "Walk to a broken panel and hold E. The repair uses 1 spare part. If you have no spare parts left, you can only put on a quick patch, and that falls off the next morning.",
-		"again": "You know what to do: hold E next to each broken panel.",
+		"how": "Walk to a broken panel and {hold}. The repair uses 1 spare part. If you have no spare parts left, you can only put on a quick patch, and that falls off the next morning.",
+		"again": "You know what to do: {hold} next to each broken panel.",
 		"task": "Fix the broken solar panels",
 	},
 	"dust": {
 		"reporter": "nova", "expert": "nova", "also": "",
 		"where": "The solar field is west of the town.",
 		"report": "Our solar panels are covered in dust! A dusty panel only makes half its energy.",
-		"how": "Dust blocks the sunlight. NASA's Mars rovers have lost power the same way. Wipe each panel clean: hold E next to it. It costs no spare parts, only time.",
-		"again": "Wipe each panel clean: hold E next to it. It costs nothing but time.",
+		"how": "Dust blocks the sunlight. NASA's Mars rovers have lost power the same way. Wipe each panel clean: {hold} next to it. It costs no spare parts, only time.",
+		"again": "Wipe each panel clean: {hold} next to it. It costs nothing but time.",
 		"task": "Wipe the dust off the solar panels",
 	},
 	"battery": {
 		"reporter": "nova", "expert": "nova", "also": "",
 		"where": "The battery stands in the solar field in the west, just below the panels.",
 		"report": "The battery is leaking energy! It wastes 2 bolts of power all the time.",
-		"how": "Walk to the battery and hold E. The repair uses 1 spare part. With no spare parts you can only patch it until tomorrow morning.",
-		"again": "Fix the battery: hold E next to it.",
+		"how": "Walk to the battery and {hold}. The repair uses 1 spare part. With no spare parts you can only patch it until tomorrow morning.",
+		"again": "Fix the battery: {hold} next to it.",
 		"task": "Fix the leaking battery",
 	},
 	"cable": {
 		"reporter": "ada", "expert": "nova", "also": "",
 		"where": "It is the pole next to the battery, in the solar field in the west.",
 		"report": "The lights keep flickering! Something must be wrong with the power line from the solar field.",
-		"how": "The power line carries energy from the solar field to the town. While it is broken, only half of the energy arrives. Walk to the pole next to the battery and hold E to repair it.",
+		"how": "The power line carries energy from the solar field to the town. While it is broken, only half of the energy arrives. Walk to the pole next to the battery and {hold} to repair it.",
 		"again": "Fix the power line pole next to the battery.",
 		"task": "Fix the power line",
 	},
@@ -304,15 +304,15 @@ const FAULTS := {
 		"reporter": "ada", "expert": "mira", "also": "",
 		"where": "The antenna stands right next to the Command Center, in the middle of the town.",
 		"report": "I cannot broadcast! The antenna is broken. There are no storm warnings, and the map picture is gone: your map only works as a simple radar now.",
-		"how": "The antenna sends the news and the map picture. Walk to it and hold E. The repair uses 1 spare part.",
-		"again": "Fix the antenna: hold E next to it.",
+		"how": "The antenna sends the news and the map picture. Walk to it and {hold}. The repair uses 1 spare part.",
+		"again": "Fix the antenna: {hold} next to it.",
 		"task": "Fix the antenna",
 	},
 	"drill": {
 		"reporter": "bo", "expert": "mira", "also": "",
 		"where": "The drill is at the mine, in the north-east.",
 		"report": "The mine drill is jammed! We cannot dig any ore until it is fixed.",
-		"how": "No drill means no ore, and no ore means no new spare parts. Walk to the drill at the mine and hold E to repair it.",
+		"how": "No drill means no ore, and no ore means no new spare parts. Walk to the drill at the mine and {hold} to repair it.",
 		"again": "Fix the drill and we will get back to digging.",
 		"task": "Fix the mine drill",
 	},
@@ -320,7 +320,7 @@ const FAULTS := {
 		"reporter": "sam", "expert": "leo", "also": "",
 		"where": "The oxygen machine is east of the town, across the road.",
 		"report": "People are getting dizzy. The oxygen machine has stopped working!",
-		"how": "The oxygen machine turns Mars air into air we can breathe. Walk to it and hold E to repair it. Then check that it is switched ON.",
+		"how": "The oxygen machine turns Mars air into air we can breathe. Walk to it and {hold} to repair it. Then check that it is switched ON.",
 		"again": "Fix the oxygen machine, then check that it is ON.",
 		"task": "Fix the oxygen machine",
 	},
@@ -328,7 +328,7 @@ const FAULTS := {
 		"reporter": "sam", "expert": "leo", "also": "",
 		"where": "Look for the red AIR LEAK! sign on a building.",
 		"report": "A meteorite hit a home! Air is leaking out.",
-		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Walk to the building and hold E to seal the hole. It uses 1 spare part.",
+		"how": "Mars has very thin air, so small space rocks reach the ground. Air escapes through the hole and our oxygen drops faster. Walk to the building and {hold} to seal the hole. It uses 1 spare part.",
 		"again": "Seal the hole before we lose too much air.",
 		"task": "Seal the air leak",
 	},
@@ -336,7 +336,7 @@ const FAULTS := {
 		"reporter": "tom", "expert": "tom", "also": "",
 		"where": "The greenhouse is in the south-west.",
 		"report": "The grow lights in the greenhouse went out! Without light the plants stop growing, and we will run out of food.",
-		"how": "Walk to the greenhouse and hold E. The repair uses 1 spare part. Then check that the lights are ON.",
+		"how": "Walk to the greenhouse and {hold}. The repair uses 1 spare part. Then check that the lights are ON.",
 		"again": "Fix the greenhouse lights, then check that they are ON.",
 		"task": "Fix the greenhouse lights",
 	},
@@ -835,7 +835,7 @@ func _after_intro() -> void:
 		_say("Mission Control", "Operator, this is Mission Control. Before you start, let us look around New Hope. Watch the screen: the camera will visit every machine.")
 		after_dialog.append(_start_tour)
 	else:
-		_say("Mission Control", "Watch your three bars: ENERGY, OXYGEN and FOOD. Walk to a machine and press E to switch it on or off. There is never enough power for everything, so every choice has a cost!")
+		_say("Mission Control", "Watch your three bars: ENERGY, OXYGEN and FOOD. Walk to a machine and {press} to switch it on or off. There is never enough power for everything, so every choice has a cost!")
 		after_dialog.append(_morning)
 
 
@@ -2028,7 +2028,7 @@ func _npc_lines(npc) -> Array:
 	if role == "engineer":
 		lines.append("I fix things and I can teach you how. When somebody has a problem, a ! shows over their head and on your map.")
 		lines.append("A repair uses 1 spare part and lasts. If you have no spare parts left, you can only put on a quick patch, and it falls off the next morning.")
-		lines.append("Out of spare parts? Collect ore from the miners, or press E at my workshop to build one. But the workshop uses a lot of energy!")
+		lines.append("Out of spare parts? Collect ore from the miners, or {press} at my workshop to build one. But the workshop uses a lot of energy!")
 	elif role == "doctor":
 		if flare_left > 0.0 and not shield.works():
 			lines.append("Radiation storm! Please switch the shield ON. Radiation can make everyone sick, even though we cannot see or feel it.")
@@ -2053,7 +2053,7 @@ func _npc_lines(npc) -> Array:
 			lines.append("I will warn everyone when a storm is on its way. Watch for my news flashes at the top of the screen.")
 	elif role == "technician":
 		lines.append("I look after the solar field. %d panels and %d wind turbines are making energy for us. Each one makes 1 bolt of power." % [panels.size() - _count_broken_panels(), turbines.size()])
-		lines.append("See the empty plots with a + sign? Stand on one and hold E to build. A solar panel costs %d spare parts and a wind turbine costs %d. Turbines also work at night." % [PANEL_COST, TURBINE_COST])
+		lines.append("See the empty plots with a + sign? Stand on one and {hold} to build. A solar panel costs %d spare parts and a wind turbine costs %d. Turbines also work at night." % [PANEL_COST, TURBINE_COST])
 	elif role == "farmer":
 		lines.append("Everything we eat grows in my greenhouse. The plants need light, so the grow lights must be ON. They use 2 bolts of power.")
 		lines.append("NASA grows lettuce in space the same way: under LED lights, in a little garden on the International Space Station.")
@@ -2146,7 +2146,7 @@ func _enter_rover(v) -> void:
 	player.position = v.position
 	hold_target = null
 	Sfx.play("door")
-	hud.toast("Driving! Arrow keys to steer, E to get out.")
+	hud.toast("Driving! Arrow keys to steer, {press} to get out.")
 
 
 func _exit_rover() -> void:
@@ -2328,57 +2328,57 @@ func _action_for(t) -> Dictionary:
 	var what: String = t.what
 	if what == "npc":
 		if t.role == "miner" and t.ore > 0 and not _npc_has_quest(t):
-			return _act("Press E: take %d ore from %s" % [t.ore, t.npc_name], "press", 0.0)
-		return _act("Press E: talk to %s" % t.npc_name, "press", 0.0)
+			return _act(Game.press_text("take %d ore from %s" % [t.ore, t.npc_name]), "press", 0.0)
+		return _act(Game.press_text("talk to %s" % t.npc_name), "press", 0.0)
 	if what == "learn":
-		return _act("Press E: see what the ? is", "press", 0.0)
+		return _act(Game.press_text("see what the ? is"), "press", 0.0)
 	if what == "item":
-		return _act("Press E: pick up the %s" % t.title, "press", 0.0)
+		return _act(Game.press_text("pick up the %s" % t.title), "press", 0.0)
 	if what == "vehicle":
-		return _act("Press E: drive the rover (it stays on the roads and uses a little energy)", "press", 0.0)
+		return _act(Game.press_text("drive the rover (it stays on the roads and uses a little energy)"), "press", 0.0)
 
 	var kind: String = t.kind
 	if kind == "plot_solar":
 		if parts >= PANEL_COST:
-			return _act("Hold E: build a solar panel here (costs %d spare parts)" % PANEL_COST, "hold", 3.0)
+			return _act(Game.hold_text("build a solar panel here (costs %d spare parts)" % PANEL_COST), "hold", 3.0)
 		return _act("Empty plot: you need %d spare parts to build a solar panel here" % PANEL_COST, "none", 0.0)
 	if kind == "plot_wind":
 		if parts >= TURBINE_COST:
-			return _act("Hold E: build a wind turbine here (costs %d spare parts)" % TURBINE_COST, "hold", 3.0)
+			return _act(Game.hold_text("build a wind turbine here (costs %d spare parts)" % TURBINE_COST), "hold", 3.0)
 		return _act("Empty plot: you need %d spare parts to build a wind turbine here" % TURBINE_COST, "none", 0.0)
 
 	if kind == "bench":
-		return _act("Press E: sit down and rest (health comes back faster while you sit)", "press", 0.0)
+		return _act(Game.press_text("sit down and rest (health comes back faster while you sit)"), "press", 0.0)
 
 	var fault: String = _fault_of(t)
 	if fault != "":
 		if not _knows_fix(fault):
 			return _act("Something is wrong here. Follow the ! on your %s to find out what to do." % _map_word(), "none", 0.0)
 		if fault == "dust":
-			return _act("Hold E: wipe the dust off this solar panel", "hold", 1.5)
+			return _act(Game.hold_text("wipe the dust off this solar panel"), "hold", 1.5)
 		# With a spare part the repair lasts. With none, a quick patch holds until tomorrow morning.
 		if fault == "leak":
 			if parts > 0:
-				return _act("Hold E: seal the hole in %s (uses 1 spare part)" % str(t.title), "hold", REPAIR_SECONDS)
-			return _act("Hold E: patch the hole in %s (no spare parts, so the patch falls off tomorrow)" % str(t.title), "hold", PATCH_SECONDS)
+				return _act(Game.hold_text("seal the hole in %s (uses 1 spare part)" % str(t.title)), "hold", REPAIR_SECONDS)
+			return _act(Game.hold_text("patch the hole in %s (no spare parts, so the patch falls off tomorrow)" % str(t.title)), "hold", PATCH_SECONDS)
 		var thing: String = str(t.title).to_lower()
 		if parts > 0:
-			return _act("Hold E: repair the %s (uses 1 spare part)" % thing, "hold", REPAIR_SECONDS)
-		return _act("Hold E: quick patch on the %s (no spare parts, so it falls off tomorrow)" % thing, "hold", PATCH_SECONDS)
+			return _act(Game.hold_text("repair the %s (uses 1 spare part)" % thing), "hold", REPAIR_SECONDS)
+		return _act(Game.hold_text("quick patch on the %s (no spare parts, so it falls off tomorrow)" % thing), "hold", PATCH_SECONDS)
 
 	if kind == "workshop":
 		if energy >= WORKSHOP_COST + 5.0:
-			return _act("Press E: build 1 spare part (costs %d energy)" % int(WORKSHOP_COST), "press", 0.0)
+			return _act(Game.press_text("build 1 spare part (costs %d energy)" % int(WORKSHOP_COST)), "press", 0.0)
 		return _act("Workshop: not enough energy to build a spare part", "none", 0.0)
 	if t.switchable:
 		var info: Dictionary = SWITCHES.get(kind, {})
 		var label: String = str(info.get("name", str(t.title).to_lower()))
 		var bolts: int = int(info.get("bolts", 2))
 		if t.is_on:
-			return _act("Press E: switch the %s OFF  (saves %d bolts, but %s)" % [label, bolts, str(info.get("off", "it stops working"))], "press", 0.0)
+			return _act(Game.press_text("switch the %s OFF  (saves %d bolts, but %s)" % [label, bolts, str(info.get("off", "it stops working"))]), "press", 0.0)
 		if energy < 3.0:
 			return _act("No power! The battery is empty.", "none", 0.0)
-		return _act("Press E: switch the %s ON  (uses %d bolts: %s)" % [label, bolts, str(info.get("on", "it starts working"))], "press", 0.0)
+		return _act(Game.press_text("switch the %s ON  (uses %d bolts: %s)" % [label, bolts, str(info.get("on", "it starts working"))]), "press", 0.0)
 	if t.patched:
 		return _act("%s: patched. The patch falls off tomorrow morning." % str(t.title), "none", 0.0)
 	if kind == "panel":
@@ -2674,11 +2674,11 @@ func _update_hud() -> void:
 		hud.set_hold(-1.0)
 		return
 	if driving != null:
-		hud.set_prompt("Press E: get out of the rover")
+		hud.set_prompt(Game.press_text("get out of the rover"))
 		hud.set_hold(-1.0)
 		return
 	if details.sitting():
-		hud.set_prompt("Resting on the bench...   Press E or walk away to stand up")
+		hud.set_prompt("Resting on the bench...   %s or walk away to stand up" % Game.KEYS)
 		hud.set_hold(-1.0)
 		return
 	var t = _find_target()
