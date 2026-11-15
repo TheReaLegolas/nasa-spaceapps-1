@@ -414,6 +414,26 @@ class ErrandItem extends Node2D:
 			art.position.y = -16.0 - absf(sin(bob * 3.0)) * 8.0
 
 
+class TargetMarker extends Node2D:
+	var t := 0.0
+
+	func _ready() -> void:
+		z_index = 20
+		visible = false
+
+	func _process(delta: float) -> void:
+		if visible:
+			t += delta
+			queue_redraw()
+
+	func _draw() -> void:
+		var y: float = -absf(sin(t * 4.0)) * 6.0
+		var outline := PackedVector2Array([Vector2(-11, y - 14), Vector2(11, y - 14), Vector2(0, y + 2)])
+		var fill := PackedVector2Array([Vector2(-8, y - 12), Vector2(8, y - 12), Vector2(0, y - 1)])
+		draw_colored_polygon(outline, Color(0.07, 0.06, 0.1, 0.9))
+		draw_colored_polygon(fill, Color(1.0, 0.85, 0.3))
+
+
 var energy := START_ENERGY
 var oxygen := START_OXYGEN
 var health := 100.0
@@ -502,6 +522,7 @@ var rocket_door: ColorRect
 var dust_puffs: Array = []
 var arrivals: Array = []          # [actor, where to walk to, seconds to wait before stepping out]
 
+var target_marker: TargetMarker
 var dialog_queue: Array = []
 var dialog_open := false
 var hold_target = null
@@ -710,6 +731,9 @@ func _build_world() -> void:
 
 	hud = HudScript.new()
 	add_child(hud)
+
+	target_marker = TargetMarker.new()
+	world.add_child(target_marker)
 
 
 # =====================================================================
@@ -2720,6 +2744,7 @@ func _update_hud() -> void:
 			marks.append([v.position, "rover"])
 	hud.set_minimap(player.position, marks, antenna.broken)
 
+	target_marker.visible = false
 	if dialog_open or choice_open or touring or film.active or menu_open:
 		hud.set_prompt("")
 		hud.set_hold(-1.0)
@@ -2734,6 +2759,9 @@ func _update_hud() -> void:
 		return
 	var t = _find_target()
 	var saved_progress: float = _saved_progress(t)
+	if t != null and is_instance_valid(t) and str(_action_for(t)["text"]) != "":
+		target_marker.visible = true
+		target_marker.position = t.position - Vector2(0, _marker_height(t))
 	if t == null:
 		hud.set_prompt("")
 	elif saved_progress > 0.0 and hold_target == null:
@@ -2747,6 +2775,21 @@ func _update_hud() -> void:
 		hud.set_hold(saved_progress)
 	else:
 		hud.set_hold(-1.0)
+
+
+func _marker_height(t) -> float:
+	if t.what == "npc":
+		if t.alert != null and t.alert.visible:
+			return 172.0
+		return 104.0
+	if t.what == "vehicle":
+		return 64.0
+	if t.what == "item" or t.what == "learn":
+		return 66.0
+	var top: float = minf(float(t.art_h) + 26.0, 196.0)
+	if t.badge.visible:
+		return top + 8.0
+	return top - 14.0
 
 
 func _saved_progress(t) -> float:
@@ -2795,6 +2838,7 @@ func _start_arrival() -> void:
 		piece["node"].queue_free()
 	flying.clear()
 	hold_target = null
+	target_marker.visible = false
 	dialog_queue.clear()
 	after_dialog.clear()
 	dialog_open = false
@@ -3018,6 +3062,7 @@ func _start_collapse(reason: String) -> void:
 		piece["node"].queue_free()
 	flying.clear()
 	hold_target = null
+	target_marker.visible = false
 	dialog_queue.clear()
 	after_dialog.clear()
 	dialog_open = false
