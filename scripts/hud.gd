@@ -322,6 +322,8 @@ var minimap
 var tasks_box: PanelContainer
 var tasks_label: Label
 var prompt_label: Label
+var prompt_shown := ""
+var prompt_tween: Tween
 var hold_bar: ProgressBar
 var toast_label: Label
 var toast_left := 0.0
@@ -787,8 +789,25 @@ func set_tasks(lines: Array) -> void:
 
 
 func set_prompt(text: String) -> void:
+	if text == prompt_shown:
+		return
+	var was: String = prompt_shown
+	prompt_shown = text
+	_kill(prompt_tween)
+	prompt_tween = create_tween()
+	if was != "" and prompt_label.visible:
+		prompt_tween.tween_property(prompt_label, "modulate:a", 0.0, 0.08)
+	if text == "":
+		prompt_tween.tween_callback(prompt_label.hide)
+		return
+	prompt_tween.tween_callback(_swap_prompt.bind(text))
+	prompt_tween.tween_property(prompt_label, "modulate:a", 1.0, 0.12)
+
+
+func _swap_prompt(text: String) -> void:
 	prompt_label.text = text
-	prompt_label.visible = text != ""
+	prompt_label.modulate.a = 0.0
+	prompt_label.visible = true
 
 
 func set_hold(progress: float) -> void:
