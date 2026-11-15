@@ -3,6 +3,7 @@ extends CanvasLayer
 # the minimap, the to-do list, news, dialogs, decision cards and the machine tour.
 
 signal choice_picked(index: int)
+signal choice_hovered(index: int)
 signal tour_skip
 
 const MinimapScript = preload("res://scripts/minimap.gd")
@@ -349,6 +350,7 @@ var choice_text: Label
 var choice_cards: Array = []
 var choice_labels: Array = []
 var choice_details: Array = []
+var choice_buttons: Array = []
 var choice_enabled := [true, true]
 
 var tour_root: Control
@@ -556,7 +558,9 @@ func _build_choice() -> void:
 		btn.size = opt.size
 		btn.focus_mode = Control.FOCUS_NONE
 		btn.pressed.connect(_on_choice_button.bind(i))
+		btn.mouse_entered.connect(_on_choice_hover.bind(i))
 		opt.add_child(btn)
+		choice_buttons.append(btn)
 		choice_cards.append(opt)
 		choice_labels.append(lab)
 		choice_details.append(det)
@@ -830,6 +834,11 @@ func show_choice(speaker: String, title: String, text: String, options: Array, s
 				bb.append(s)
 		det.text = "\n".join(bb)
 		choice_enabled[i] = bool(o.get("enabled", true))
+		var b: Button = choice_buttons[i]
+		if choice_enabled[i]:
+			b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		else:
+			b.mouse_default_cursor_shape = Control.CURSOR_ARROW
 	choice_root.visible = true
 	set_choice_selected(selected)
 	_kill(choice_tween)
@@ -865,6 +874,11 @@ func hide_choice() -> void:
 func _on_choice_button(index: int) -> void:
 	if choice_root.visible and choice_enabled[index]:
 		choice_picked.emit(index)
+
+
+func _on_choice_hover(index: int) -> void:
+	if choice_root.visible and choice_enabled[index]:
+		choice_hovered.emit(index)
 
 
 # ---- the machine tour
